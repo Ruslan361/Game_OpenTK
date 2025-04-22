@@ -15,6 +15,7 @@ obj/
 assets/models
 textures
 .vscode/
+Logs
 
 # OS
 .DS_Store

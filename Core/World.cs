@@ -7,12 +7,13 @@ using Microsoft.Extensions.Logging;
 using Simple3DGame.Config;
 using Simple3DGame.Models;
 using Simple3DGame.Rendering;
+using Simple3DGame.Core.Logging;
 
 namespace Simple3DGame.Core
 {
     public class World
     {
-        private readonly ILogger<World> _logger;
+        private readonly WorldLogger _logger;
         private readonly ConfigSettings _config;
         private Shader _shader = null!;
         private Shader _lightShader = null!;
@@ -47,20 +48,20 @@ namespace Simple3DGame.Core
 
         public World(ILogger<World> logger, ConfigSettings config)
         {
-            _logger = logger;
+            _logger = new WorldLogger(logger);
             _config = config;
-            _logger.LogInformation("World initialized");
+            _logger.Initialized();
         }
 
         public void Load(int screenWidth, int screenHeight)
         {
             try
             {
-                _logger.LogInformation("Starting world loading");
+                _logger.LoadingStarted();
                 
                 // No need to check directories - ConfigSettings takes care of this
-                _logger.LogInformation($"Using shader directory: {_config.ShadersPath}");
-                _logger.LogInformation($"Using models directory: {_config.ModelsPath}");
+                _logger.ShadersDirectory(_config.ShadersPath);
+                _logger.ModelsDirectory(_config.ModelsPath);
                 
                 // Configure face culling
                 // Option 1: Disable face culling completely (show all faces)
@@ -72,7 +73,7 @@ namespace Simple3DGame.Core
                 // GL.CullFace(CullFaceMode.Back); // Don't render back faces
                 // GL.FrontFace(FrontFaceDirection.Ccw); // Counter-clockwise winding defines front faces
                 
-                _logger.LogInformation("Loading shaders");
+                _logger.ShadersLoading();
                 _shader = new Shader(_config.VertexShaderPath, _config.LightingFragmentShaderPath);
                 _lightShader = new Shader(_config.VertexShaderPath, _config.FragmentShaderPath);
                 
@@ -83,7 +84,7 @@ namespace Simple3DGame.Core
                 // Copy texture files to the textures directory if they don't exist
                 if (!File.Exists(texturePath))
                 {
-                    _logger.LogWarning($"Default diffuse texture not found at {texturePath}, creating a default texture");
+                    _logger.DiffuseTextureNotFound(texturePath);
                     
                     // Ensure the directory exists
                     Directory.CreateDirectory(_config.TexturesPath);
@@ -93,13 +94,13 @@ namespace Simple3DGame.Core
                     if (File.Exists(sourceTexturePath))
                     {
                         File.Copy(sourceTexturePath, texturePath, true);
-                        _logger.LogInformation($"Copied default diffuse texture from {sourceTexturePath} to {texturePath}");
+                        _logger.CopyingDefaultDiffuseTexture(sourceTexturePath, texturePath);
                     }
                 }
                 
                 if (!File.Exists(specularPath))
                 {
-                    _logger.LogWarning($"Default specular texture not found at {specularPath}, creating a default texture");
+                    _logger.SpecularTextureNotFound(specularPath);
                     
                     // Ensure the directory exists
                     Directory.CreateDirectory(_config.TexturesPath);
@@ -109,17 +110,17 @@ namespace Simple3DGame.Core
                     if (File.Exists(sourceSpecularPath))
                     {
                         File.Copy(sourceSpecularPath, specularPath, true);
-                        _logger.LogInformation($"Copied default specular texture from {sourceSpecularPath} to {specularPath}");
+                        _logger.CopyingSpecularTexture(sourceSpecularPath, specularPath);
                     }
                 }
                 
                 // Load the model
                 string modelPath = Path.Combine(_config.ModelsPath, _config.DefaultModelName);
-                _logger.LogInformation($"Loading model: {modelPath}");
+                _logger.ModelLoading(modelPath);
                 
                 if (!File.Exists(modelPath))
                 {
-                    _logger.LogWarning($"Model file not found: {modelPath}, generating default cube");
+                    _logger.ModelNotFound(modelPath);
                     // Create default cube if model not found, passing the main shader
                     _model = ModelFactory.CreateDefaultCube(_shader);
                     
@@ -135,11 +136,11 @@ namespace Simple3DGame.Core
                 // Create light cube, passing the light shader
                 _lightCube = ModelFactory.CreateCube(_lightShader);
                 
-                _logger.LogInformation("World loaded successfully");
+                _logger.WorldLoadingSuccessful();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error loading world resources");
+                _logger.WorldResourcesLoadingError(ex);
                 throw;
             }
         }

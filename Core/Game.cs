@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Simple3DGame.Config;
 using Simple3DGame.Core;
 using Simple3DGame.Rendering;
+using Simple3DGame.Core.Logging;
 
 namespace Simple3DGame.Core
 {
@@ -16,14 +17,14 @@ namespace Simple3DGame.Core
     {
         private Camera _camera = null!;
         private World _world = null!;
-        private readonly ILogger<Game> _logger;
+        private readonly GameLogger _logger;
         private readonly ILoggerFactory _loggerFactory;
         private readonly ConfigSettings _config;
 
         private Stopwatch _stopwatch = new Stopwatch();
 
         public Game(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings, 
-                   ILogger<Game> logger, ConfigSettings config)
+                   GameLogger logger, ConfigSettings config)
             : base(gameWindowSettings, nativeWindowSettings)
         {
             _logger = logger;
@@ -36,7 +37,7 @@ namespace Simple3DGame.Core
                 builder.SetMinimumLevel(LogLevel.Information);
             });
             
-            _logger.LogInformation("Игра инициализирована");
+            _logger.Initialized();
         }
 
         protected override void OnLoad()
@@ -45,14 +46,14 @@ namespace Simple3DGame.Core
             {
                 base.OnLoad();
 
-                _logger.LogInformation("Начало инициализации...");
+                _logger.InitializationStarted();
 
                 GL.ClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 
                 GL.Enable(EnableCap.DepthTest);
                 GL.Enable(EnableCap.CullFace);
 
-                _logger.LogInformation("OpenGL настройки установлены");
+                _logger.OpenGLSettingsApplied();
 
                 // Инициализация камеры с правильным типом логгера
                 _camera = new Camera(
@@ -60,29 +61,29 @@ namespace Simple3DGame.Core
                     Size.X / (float)Size.Y, 
                     _loggerFactory.CreateLogger<Camera>()
                 );
-                _logger.LogInformation("Камера инициализирована");
+                _logger.CameraInitialized();
 
-                _logger.LogInformation("Создание игрового мира...");
+                _logger.WorldCreating();
                 // Создаем игровой мир с правильным типом логгера
                 _world = new World(
                     _loggerFactory.CreateLogger<World>(), 
                     _config
                 );
-                _logger.LogInformation("Игровой мир создан");
+                _logger.WorldCreated();
 
-                _logger.LogInformation("Загрузка игрового мира...");
+                _logger.WorldLoading();
                 _world.Load(Size.X, Size.Y);
 
-                _logger.LogInformation("Игровой мир загружен");
+                _logger.WorldLoaded();
 
                 _stopwatch.Start();
 
                 CursorState = CursorState.Grabbed;
-                _logger.LogInformation("OnLoad завершен успешно");
+                _logger.OnLoadCompleted();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ошибка при инициализации игры");
+                _logger.InitializationError(ex);
                 throw;
             }
         }
@@ -104,7 +105,7 @@ namespace Simple3DGame.Core
 
             if (KeyboardState.IsKeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.Escape))
             {
-                _logger.LogInformation("Получен сигнал выхода");
+                _logger.ExitSignalReceived();
                 Close();
             }
 
@@ -125,13 +126,13 @@ namespace Simple3DGame.Core
             GL.Viewport(0, 0, Size.X, Size.Y);
             _camera.AspectRatio = Size.X / (float)Size.Y;
 
-            _logger.LogInformation($"Изменен размер окна: {Size.X}x{Size.Y}");
+            _logger.WindowResized(Size.X, Size.Y);
         }
 
         protected override void OnUnload()
         {
             _stopwatch.Stop();
-            _logger.LogInformation($"Игра завершена. Общее время работы: {_stopwatch.Elapsed}");
+            _logger.Completed(_stopwatch.Elapsed);
 
             base.OnUnload();
         }
