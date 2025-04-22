@@ -1,24 +1,45 @@
-﻿using OpenTK.Graphics.OpenGL4;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using OpenTK.Mathematics;
-using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
-using OpenTK.Windowing.GraphicsLibraryFramework;
-
-
+using Simple3DGame.Core;
+using Simple3DGame.Config;
 using System;
-using System.Collections.Generic;
-using System.IO;
 
-namespace Simple3DGame {
-    class Program {
-        static void Main(string[] args) {
-            var nativeWindowSettings = new NativeWindowSettings() {
-                ClientSize = new Vector2i(800, 600), // Используем ClientSize вместо Size
-                Title = "OpenTK 3D Game Template"
+namespace Simple3DGame
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            // Setup dependency injection
+            var serviceProvider = new ServiceCollection()
+                .AddLogging(builder => 
+                {
+                    builder.AddConsole();
+                    builder.SetMinimumLevel(LogLevel.Information);
+                })
+                .AddSingleton<ConfigSettings>()
+                .BuildServiceProvider();
+
+            var logger = serviceProvider.GetService<ILogger<Program>>();
+            logger?.LogInformation("Starting Simple3DGame");
+
+            var configSettings = serviceProvider.GetRequiredService<ConfigSettings>();
+            var gameLogger = serviceProvider.GetRequiredService<ILogger<Game>>();
+
+            var nativeWindowSettings = new NativeWindowSettings()
+            {
+                ClientSize = new Vector2i(800, 600),
+                Title = "Simple 3D Game",
+                // This is needed to run on macos
+                Flags = OpenTK.Windowing.Common.ContextFlags.ForwardCompatible,
             };
 
-            using (var window = new Game(nativeWindowSettings)) {
-                window.Run();
+            // Use the Game class
+            using (var game = new Game(GameWindowSettings.Default, nativeWindowSettings, gameLogger, configSettings))
+            {
+                game.Run();
             }
         }
     }

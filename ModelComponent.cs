@@ -1,14 +1,17 @@
 using OpenTK.Mathematics;
 using OpenTK.Graphics.OpenGL4;
+using Simple3DGame.Core;
+using Simple3DGame.Models;
+using Simple3DGame.Rendering;
 
 namespace Simple3DGame 
 {
     public class ModelComponent : Component
     {
-        private ObjLoader.Model model;
+        private Models.ObjLoader.Model model;
         private Shader shader;
 
-        public ModelComponent(ObjLoader.Model model, Shader shader)
+        public ModelComponent(Models.ObjLoader.Model model, Shader shader)
         {
             this.model = model;
             this.shader = shader;

@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+
+  <!-- Asset path configuration
+  <PropertyGroup>
+    <AssetsRootPath>assets</AssetsRootPath>
+    <ModelsPath>$(AssetsRootPath)/models</ModelsPath>
+    <ShadersPath>$(AssetsRootPath)/shaders</ShadersPath>
+    <DefaultModelName>sample.obj</DefaultModelName>
+    <ShaderRootPath>shader</ShaderRootPath>
+    <VertexShaderPath>$(AssetsRootPath)/$(ShaderRootPath)/shader.vert</VertexShaderPath>
+    <FragmentShaderPath>$(AssetsRootPath)/$(ShaderRootPath)/lighting.frag</FragmentShaderPath>
+    <LampFragmentShaderPath>$(AssetsRootPath)/$(ShaderRootPath)/shader.frag</LampFragmentShaderPath>
+  </PropertyGroup> -->
+
+  <ItemGroup>
+  
+    <PackageReference Include="CjClutter.ObjLoader" Version="1.0.0" />
+    <PackageReference Include="OpenTK" Version="4.9.4" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.0" />
+    
+    <None Update="assets\**\*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+
+    <PackageReference Include="StbImageSharp" Version="2.30.15" />
+    
+  </ItemGroup>
+  
+  <!-- <Target Name="ReplaceAssetPaths" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <Compile Update="AssetPathConstants.cs">
+        <Content>$([System.IO.File]::ReadAllText('%(FullPath)')
+          .Replace('$(AssetsRootPath)', '$(AssetsRootPath)')
+          .Replace('$(ModelsPath)', '$(ModelsPath)')
+          .Replace('$(ShadersPath)', '$(ShadersPath)')
+          .Replace('$(DefaultModelName)', '$(DefaultModelName)'))</Content>
+      </Compile>
+      <Compile Update="ShaderPathConstants.cs">
+        <Content>$([System.IO.File]::ReadAllText('%(FullPath)')
+          .Replace('$(AssetsRootPath)', '$(AssetsRootPath)')
+          .Replace('$(ModelsPath)', '$(ModelsPath)')
+          .Replace('$(ShadersPath)', '$(ShadersPath)')
+          .Replace('$(DefaultModelName)', '$(DefaultModelName)'))</Content>
+      </Compile>
+    </ItemGroup>
+    <WriteLinesToFile File="@(Compile->'%(FullPath)')" Lines="%(Compile.Content)" Overwrite="true" Condition="'%(Compile.Content)' != ''" />
+  </Target> -->
+    
+</Project>

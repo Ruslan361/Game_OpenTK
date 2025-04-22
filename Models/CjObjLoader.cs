@@ -1,18 +1,21 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using Simple3DGame.Rendering; // Replace with the actual namespace where the Texture class is defined
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using ObjLoader.Loader.Loaders;
 
-namespace Simple3DGame
+
+namespace Simple3DGame.Models
 {
     public class CjObjLoader
     {
         // Кэш для текстур
         private static Dictionary<string, Texture> textureCache = new Dictionary<string, Texture>();
         
-        public static ObjLoader.Model LoadModel(string path)
+        public static ObjLoader.Model LoadModel(string path, Shader shader)
         {
             ObjLoaderFactory objLoaderFactory = new ObjLoaderFactory();
             IObjLoader loader = objLoaderFactory.Create();
@@ -32,7 +35,7 @@ namespace Simple3DGame
                     Console.WriteLine($"Граней: {loadedObj.Groups.Sum(g => g.Faces.Count)}");
                     
                     // Преобразуем данные из формата CjClutter в наш формат
-                    ConvertToGameModel(loadedObj, path, model);
+                    ConvertToGameModel(loadedObj, path, model, shader);
                 }
                 
                 return model;
@@ -44,9 +47,9 @@ namespace Simple3DGame
             }
         }
         
-        private static void ConvertToGameModel(LoadResult loadResult, string modelPath, ObjLoader.Model model)
+        private static void ConvertToGameModel(LoadResult loadResult, string modelPath, ObjLoader.Model model, Shader shader)
         {
-            string directory = Path.GetDirectoryName(modelPath);
+            string directory = Path.GetDirectoryName(modelPath) ?? string.Empty;
             model.Directory = directory;
             
             // Перебираем все группы и создаем меши для каждой
@@ -104,44 +107,86 @@ namespace Simple3DGame
                 }
                 
                 // Создаем меш
-                Mesh mesh = CreateMesh(vertices, indices);
+                Mesh mesh = CreateMesh(vertices, indices, shader);
                 model.Meshes.Add(mesh);
                 
-                // Ищем материал для группы и загружаем текстуру
-                if (group.Material != null && !string.IsNullOrEmpty(group.Material.DiffuseTextureMap))
+                // Загружаем текстуры материала
+                LoadMaterialTextures(group.Material, directory, model);
+            }
+        }
+
+        // Method to handle loading material textures
+        private static void LoadMaterialTextures(global::ObjLoader.Loader.Data.Material material, string directory, ObjLoader.Model model)
+        {
+            string defaultDiffusePath = Path.Combine(directory, "../textures/container2.png");
+            string defaultSpecularPath = Path.Combine(directory, "../textures/container2_specular.png");
+
+            // Load Diffuse Map
+            string diffuseTexturePath = material?.DiffuseTextureMap ?? string.Empty;
+            if (!string.IsNullOrEmpty(diffuseTexturePath))
+            {
+                string fullDiffusePath = Path.Combine(directory, diffuseTexturePath);
+                Console.WriteLine($"Загружаем диффузную текстуру: {fullDiffusePath}");
+                if (File.Exists(fullDiffusePath))
                 {
-                    string texturePath = Path.Combine(directory, group.Material.DiffuseTextureMap);
-                    Console.WriteLine($"Загружаем текстуру: {texturePath}");
-                    Console.WriteLine($"Файл существует: {File.Exists(texturePath)}");
-                    if (File.Exists(texturePath))
-                    {
-                        Texture texture = LoadTexture(texturePath);
-                        model.Textures.Add(texture);
-                    }
-                    else
-                    {
-                        model.Textures.Add(null);
-                        Console.WriteLine($"Текстура не найдена: {texturePath}");
-                    }
+                    model.DiffuseMap = LoadTexture(fullDiffusePath);
                 }
                 else
                 {
-                    // Если нет материала, используем текстуру по умолчанию
-                    string defaultTexturePath = Path.Combine(directory, "assets/textures/container.jpg");
-                    if (File.Exists(defaultTexturePath))
-                    {
-                        Texture texture = LoadTexture(defaultTexturePath);
-                        model.Textures.Add(texture);
-                    }
-                    else
-                    {
-                        model.Textures.Add(null);
-                    }
+                    Console.WriteLine($"Диффузная текстура не найдена: {fullDiffusePath}, используем стандартную.");
+                    model.DiffuseMap = LoadTextureOrDefault(defaultDiffusePath);
                 }
+            }
+            else
+            {
+                Console.WriteLine("Диффузная текстура не указана в материале, используем стандартную.");
+                model.DiffuseMap = LoadTextureOrDefault(defaultDiffusePath);
+            }
+
+            // Load Specular Map
+            string specularTexturePath = material?.SpecularTextureMap ?? string.Empty;
+            if (!string.IsNullOrEmpty(specularTexturePath))
+            {
+                string fullSpecularPath = Path.Combine(directory, specularTexturePath);
+                Console.WriteLine($"Загружаем спекулярную текстуру: {fullSpecularPath}");
+                if (File.Exists(fullSpecularPath))
+                {
+                    model.SpecularMap = LoadTexture(fullSpecularPath);
+                }
+                else
+                {
+                    Console.WriteLine($"Спекулярная текстура не найдена: {fullSpecularPath}, используем стандартную.");
+                    model.SpecularMap = LoadTextureOrDefault(defaultSpecularPath);
+                }
+            }
+            else
+            {
+                Console.WriteLine("Спекулярная текстура не указана в материале, используем стандартную.");
+                model.SpecularMap = LoadTextureOrDefault(defaultSpecularPath);
+            }
+
+            // Add diffuse map to the general Textures list for backward compatibility or other uses
+            if (model.DiffuseMap != null)
+            {
+                model.Textures.Add(model.DiffuseMap);
+            }
+        }
+
+        // Helper method to load texture or return default
+        private static Texture LoadTextureOrDefault(string texturePath)
+        {
+            if (File.Exists(texturePath))
+            {
+                return LoadTexture(texturePath);
+            }
+            else
+            {
+                Console.WriteLine($"Стандартная текстура не найдена: {texturePath}, создаем белую текстуру.");
+                return Texture.CreateDefaultTexture(); // Use the static method from Texture class
             }
         }
         
-        private static Mesh CreateMesh(List<float> vertices, List<uint> indices)
+        private static Mesh CreateMesh(List<float> vertices, List<uint> indices, Shader shader)
         {
             int vao = GL.GenVertexArray();
             int vbo = GL.GenBuffer();
@@ -155,17 +200,17 @@ namespace Simple3DGame
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, ebo);
             GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Count * sizeof(uint), indices.ToArray(), BufferUsageHint.StaticDraw);
             
-            // Позиция (3 float)
-            GL.EnableVertexAttribArray(0);
-            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 0);
-            
-            // Нормаль (3 float)
-            GL.EnableVertexAttribArray(1);
-            GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 3 * sizeof(float));
-            
-            // Текстурные координаты (2 float)
-            GL.EnableVertexAttribArray(2);
-            GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, false, 8 * sizeof(float), 6 * sizeof(float));
+            var positionLocation = shader.GetAttribLocation("aPos");
+            GL.EnableVertexAttribArray(positionLocation);
+            GL.VertexAttribPointer(positionLocation, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 0);
+
+            var normalLocation = shader.GetAttribLocation("aNormal");
+            GL.EnableVertexAttribArray(normalLocation);
+            GL.VertexAttribPointer(normalLocation, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 3 * sizeof(float));
+
+            var texCoordLocation = shader.GetAttribLocation("aTexCoords");
+            GL.EnableVertexAttribArray(texCoordLocation);
+            GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 8 * sizeof(float), 6 * sizeof(float));
             
             GL.BindVertexArray(0);
             
@@ -174,7 +219,7 @@ namespace Simple3DGame
         
         private static Texture LoadTexture(string path)
         {
-            if (textureCache.TryGetValue(path, out Texture texture))
+            if (textureCache.TryGetValue(path, out Texture? texture) && texture != null)
             {
                 return texture;
             }
@@ -188,7 +233,7 @@ namespace Simple3DGame
             catch (Exception ex)
             {
                 Console.WriteLine($"Ошибка при загрузке текстуры {path}: {ex.Message}");
-                return null;
+                return Texture.CreateDefaultTexture();
             }
         }
     }

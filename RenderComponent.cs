@@ -1,5 +1,8 @@
-using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
+using OpenTK.Graphics.OpenGL4;
+using Simple3DGame.Core;
+using Simple3DGame.Models;
+using Simple3DGame.Rendering;
 
 namespace Simple3DGame
 {
