@@ -25,10 +25,7 @@ namespace Simple3DGame.Core
         /// </summary>
         public static IServiceCollection AddRuLoggers(this IServiceCollection services)
         {
-            // Register loggers by type
-            services.AddTransient<ApplicationLogger>(provider => 
-                new ApplicationLogger(provider.GetRequiredService<ILogger<Program>>()));
-                
+            // Register loggers by type - removing ApplicationLogger since it's static
             services.AddTransient<WorldLogger>(provider => 
                 new WorldLogger(provider.GetRequiredService<ILogger<World>>()));
                 
@@ -36,7 +33,7 @@ namespace Simple3DGame.Core
                 new ConfigLogger(provider.GetRequiredService<ILogger<Config.ConfigSettings>>()));
                 
             services.AddTransient<GameLogger>(provider => 
-                new GameLogger(provider.GetRequiredService<ILogger<Game>>()));
+                new GameLogger(provider.GetRequiredService<ILogger<Simple3DGame.Game>>()));
             
             return services;
         }
@@ -47,7 +44,7 @@ namespace Simple3DGame.Core
     /// </summary>
     public class GameLogger<T> : GameLogger
     {
-        public GameLogger(ILogger<T> logger) : base(logger)
+        public GameLogger(ILogger<T> logger) : base((ILogger)logger)
         {
         }
     }

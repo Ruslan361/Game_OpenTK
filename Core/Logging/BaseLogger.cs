@@ -46,6 +46,24 @@ namespace Simple3DGame.Core.Logging
         protected void LogDebug(string message, params object[] args) => 
             _logger.LogDebug(message, args);
 
+        /// <summary>
+        /// Logs trace message
+        /// </summary>
+        protected void LogTrace(string message, params object[] args) => 
+            _logger.LogTrace(message, args);
+
+        /// <summary>
+        /// Logs critical message with exception
+        /// </summary>
+        protected void LogCritical(Exception exception, string message, params object[] args) => 
+            _logger.LogCritical(exception, message, args);
+
+        /// <summary>
+        /// Logs critical message without exception
+        /// </summary>
+        protected void LogCritical(string message, params object[] args) => 
+            _logger.LogCritical(message, args);
+
         #endregion
     }
 }

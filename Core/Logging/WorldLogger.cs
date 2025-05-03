@@ -116,5 +116,47 @@ namespace Simple3DGame.Core
         /// </summary>
         public void WorldResourcesLoadingError(Exception exception) => 
             ResourcesLoadingError(exception);
+
+        // Expose specific logging methods needed by World.cs
+        public void EntityCreated(int id) => 
+            LogDebug($"Entity created: {id}");
+
+        public void EntityDestroyed(int id) => 
+            LogDebug($"Entity destroyed: {id}");
+
+        public void ComponentAdded(int entityId, string componentType) => 
+            LogTrace($"Component {componentType} added to entity {entityId}");
+
+        public void ComponentRemoved(int entityId, string componentType) => 
+            LogTrace($"Component {componentType} removed from entity {entityId}");
+
+        public void SystemAdded(string systemType) => 
+            LogInformation($"System added: {systemType}");
+
+        public void SystemRemoved(string systemType) => 
+            LogInformation($"System removed: {systemType}");
+
+        // Expose generic logging methods
+        public void LogInformation(string message) => 
+            LogInfo(message);
+
+        public void LogWarning(string message) => 
+            LogWarning(message);
+
+        public void LogError(string message, Exception? ex = null)
+        {
+            if (ex != null)
+                LogError(ex, message);
+            else
+                LogError(message);
+        }
+
+        public void LogCritical(string message, Exception? ex = null)
+        {
+            if (ex != null)
+                LogCritical(ex, message);
+            else
+                LogCritical(message);
+        }
     }
 }

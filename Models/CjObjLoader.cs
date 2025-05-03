@@ -2,24 +2,23 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Simple3DGame.Rendering; // Replace with the actual namespace where the Texture class is defined
+using Simple3DGame.Rendering;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using ObjLoader.Loader.Loaders;
 
-
 namespace Simple3DGame.Models
 {
-    public class CjObjLoader
+    public static class CjObjLoader
     {
         // Кэш для текстур
         private static Dictionary<string, Texture> textureCache = new Dictionary<string, Texture>();
         
-        public static ObjLoader.Model LoadModel(string path, Shader shader)
+        public static Model LoadModel(string path, Shader shader)
         {
             ObjLoaderFactory objLoaderFactory = new ObjLoaderFactory();
             IObjLoader loader = objLoaderFactory.Create();
-            ObjLoader.Model model = new ObjLoader.Model();
+            Model model = new Model(new List<Mesh>());
             
             try
             {
@@ -47,7 +46,7 @@ namespace Simple3DGame.Models
             }
         }
         
-        private static void ConvertToGameModel(LoadResult loadResult, string modelPath, ObjLoader.Model model, Shader shader)
+        private static void ConvertToGameModel(LoadResult loadResult, string modelPath, Model model, Shader shader)
         {
             string directory = Path.GetDirectoryName(modelPath) ?? string.Empty;
             model.Directory = directory;
@@ -92,7 +91,7 @@ namespace Simple3DGame.Models
                         {
                             var texCoord = loadResult.Textures[faceVertex.TextureIndex - 1];
                             vertices.Add(texCoord.X);
-                            vertices.Add(texCoord.Y); // Без инвертирования для проверки
+                            vertices.Add(texCoord.Y);
                         }
                         else
                         {
@@ -107,7 +106,7 @@ namespace Simple3DGame.Models
                 }
                 
                 // Создаем меш
-                Mesh mesh = CreateMesh(vertices, indices, shader);
+                Mesh mesh = new Mesh(vertices.ToArray(), indices.ToArray());
                 model.Meshes.Add(mesh);
                 
                 // Загружаем текстуры материала
@@ -116,10 +115,10 @@ namespace Simple3DGame.Models
         }
 
         // Method to handle loading material textures
-        private static void LoadMaterialTextures(global::ObjLoader.Loader.Data.Material material, string directory, ObjLoader.Model model)
+        private static void LoadMaterialTextures(global::ObjLoader.Loader.Data.Material? material, string directory, Model model)
         {
-            string defaultDiffusePath = Path.Combine(directory, "../textures/container2.png");
-            string defaultSpecularPath = Path.Combine(directory, "../textures/container2_specular.png");
+            string defaultDiffusePath = Path.Combine(directory, "../Textures/container2.png");
+            string defaultSpecularPath = Path.Combine(directory, "../Textures/container2_specular.png");
 
             // Load Diffuse Map
             string diffuseTexturePath = material?.DiffuseTextureMap ?? string.Empty;
@@ -182,39 +181,27 @@ namespace Simple3DGame.Models
             else
             {
                 Console.WriteLine($"Стандартная текстура не найдена: {texturePath}, создаем белую текстуру.");
-                return Texture.CreateDefaultTexture(); // Use the static method from Texture class
+                return CreateDefaultTexture(); // Создание дефолтной текстуры
             }
         }
         
-        private static Mesh CreateMesh(List<float> vertices, List<uint> indices, Shader shader)
+        // Создаем белую текстуру по умолчанию
+        private static Texture CreateDefaultTexture()
         {
-            int vao = GL.GenVertexArray();
-            int vbo = GL.GenBuffer();
-            int ebo = GL.GenBuffer();
+            int handle = GL.GenTexture();
+            GL.BindTexture(TextureTarget.Texture2D, handle);
             
-            GL.BindVertexArray(vao);
+            // Создаем белую текстуру 1x1
+            byte[] data = { 255, 255, 255, 255 }; // RGBA, белый цвет
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, 1, 1, 0, PixelFormat.Rgba, PixelType.UnsignedByte, data);
             
-            GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
-            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Count * sizeof(float), vertices.ToArray(), BufferUsageHint.StaticDraw);
+            // Устанавливаем параметры текстуры
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
             
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, ebo);
-            GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Count * sizeof(uint), indices.ToArray(), BufferUsageHint.StaticDraw);
-            
-            var positionLocation = shader.GetAttribLocation("aPos");
-            GL.EnableVertexAttribArray(positionLocation);
-            GL.VertexAttribPointer(positionLocation, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 0);
-
-            var normalLocation = shader.GetAttribLocation("aNormal");
-            GL.EnableVertexAttribArray(normalLocation);
-            GL.VertexAttribPointer(normalLocation, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 3 * sizeof(float));
-
-            var texCoordLocation = shader.GetAttribLocation("aTexCoords");
-            GL.EnableVertexAttribArray(texCoordLocation);
-            GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 8 * sizeof(float), 6 * sizeof(float));
-            
-            GL.BindVertexArray(0);
-            
-            return new Mesh { vao = vao, vbo = vbo, indicesCount = indices.Count };
+            return new Texture(handle);
         }
         
         private static Texture LoadTexture(string path)
@@ -233,7 +220,7 @@ namespace Simple3DGame.Models
             catch (Exception ex)
             {
                 Console.WriteLine($"Ошибка при загрузке текстуры {path}: {ex.Message}");
-                return Texture.CreateDefaultTexture();
+                return CreateDefaultTexture();
             }
         }
     }

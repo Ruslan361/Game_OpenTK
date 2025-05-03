@@ -1,112 +1,88 @@
+using System.Collections.Generic;
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 using Simple3DGame.Rendering;
-using System.Collections.Generic;
 
 namespace Simple3DGame.Models
 {
+    /// <summary>
+    /// Фабричный класс для создания базовых 3D примитивов
+    /// </summary>
     public static class ModelFactory
     {
-        public static ObjLoader.Model CreateDefaultCube(Shader shader)
+        /// <summary>
+        /// Создает модель куба с заданным размером
+        /// </summary>
+        /// <param name="shader">Шейдер для рендеринга куба</param>
+        /// <param name="size">Размер куба (по умолчанию 1.0)</param>
+        /// <returns>Меш куба</returns>
+        public static Mesh CreateCube(Shader shader, float size = 1.0f)
         {
-            var model = new ObjLoader.Model();
-            model.Meshes.Add(CreateCube(shader));
-            return model;
-        }
-
-        public static Mesh CreateCube(Shader shader)
-        {
-            // Define vertices for a cube
+            // Масштабируем вершины в соответствии с размером
+            float halfSize = size * 0.5f;
+            
+            // Вершины куба (позиция, нормаль, текстурные координаты)
             float[] vertices = {
-                // positions          // normals           // texture coords
-                -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
-                 0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
-                 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
-                 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
-                -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f,
-                -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
+                // Передняя грань
+                -halfSize, -halfSize,  halfSize,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f, // Нижний левый
+                 halfSize, -halfSize,  halfSize,  0.0f,  0.0f,  1.0f,  1.0f, 0.0f, // Нижний правый
+                 halfSize,  halfSize,  halfSize,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f, // Верхний правый
+                -halfSize,  halfSize,  halfSize,  0.0f,  0.0f,  1.0f,  0.0f, 1.0f, // Верхний левый
 
-                -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
-                 0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 0.0f,
-                 0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
-                 0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f,
-                -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 1.0f,
-                -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f,
+                // Задняя грань
+                 halfSize, -halfSize, -halfSize,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f, // Нижний левый
+                -halfSize, -halfSize, -halfSize,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f, // Нижний правый
+                -halfSize,  halfSize, -halfSize,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f, // Верхний правый
+                 halfSize,  halfSize, -halfSize,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f, // Верхний левый
 
-                -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-                -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-                -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-                -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-                -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
-                -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+                // Левая грань
+                -halfSize, -halfSize, -halfSize, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f, // Нижний левый
+                -halfSize, -halfSize,  halfSize, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f, // Нижний правый
+                -halfSize,  halfSize,  halfSize, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f, // Верхний правый
+                -halfSize,  halfSize, -halfSize, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f, // Верхний левый
 
-                 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
-                 0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f,
-                 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-                 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f,
-                 0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f,
-                 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f,
+                // Правая грань
+                 halfSize, -halfSize,  halfSize,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f, // Нижний левый
+                 halfSize, -halfSize, -halfSize,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, // Нижний правый
+                 halfSize,  halfSize, -halfSize,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f, // Верхний правый
+                 halfSize,  halfSize,  halfSize,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f, // Верхний левый
 
-                -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
-                 0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f,
-                 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
-                 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f,
-                -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f,
-                -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f,
+                // Верхняя грань
+                -halfSize,  halfSize,  halfSize,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f, // Нижний левый
+                 halfSize,  halfSize,  halfSize,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f, // Нижний правый
+                 halfSize,  halfSize, -halfSize,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f, // Верхний правый
+                -halfSize,  halfSize, -halfSize,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f, // Верхний левый
 
-                -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f,
-                 0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f,
-                 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
-                 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f,
-                -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f,
-                -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f
+                // Нижняя грань
+                -halfSize, -halfSize, -halfSize,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f, // Нижний левый
+                 halfSize, -halfSize, -halfSize,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f, // Нижний правый
+                 halfSize, -halfSize,  halfSize,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f, // Верхний правый
+                -halfSize, -halfSize,  halfSize,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f  // Верхний левый
             };
 
-            // Create indices for the cube
-            uint[] indices = new uint[36];
-            for (uint i = 0; i < 36; i++)
-                indices[i] = i;
+            // Индексы для отрисовки граней
+            uint[] indices = {
+                0, 1, 2, 2, 3, 0,       // Передняя грань
+                4, 5, 6, 6, 7, 4,       // Задняя грань
+                8, 9, 10, 10, 11, 8,     // Левая грань
+                12, 13, 14, 14, 15, 12,  // Правая грань
+                16, 17, 18, 18, 19, 16,  // Верхняя грань
+                20, 21, 22, 22, 23, 20   // Нижняя грань
+            };
 
-            // Create the mesh
-            int vao = GL.GenVertexArray();
-            int vbo = GL.GenBuffer();
-            int ebo = GL.GenBuffer();
+            return new Mesh(vertices, indices);
+        }
 
-            GL.BindVertexArray(vao);
-
-            GL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
-            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
-
-            GL.BindBuffer(BufferTarget.ElementArrayBuffer, ebo);
-            GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Length * sizeof(uint), indices, BufferUsageHint.StaticDraw);
-
-            // Position attribute
-            // GL.EnableVertexAttribArray(0);
-            // GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 0);
-
-            // // Normal attribute
-            // GL.EnableVertexAttribArray(1);
-            // GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 3 * sizeof(float));
-
-            // // Texture coord attribute
-            // GL.EnableVertexAttribArray(2);
-            // GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, false, 8 * sizeof(float), 6 * sizeof(float));
-
-            var positionLocation = shader.GetAttribLocation("aPos");
-            GL.EnableVertexAttribArray(positionLocation);
-            GL.VertexAttribPointer(positionLocation, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 0);
-
-            var normalLocation = shader.GetAttribLocation("aNormal");
-            GL.EnableVertexAttribArray(normalLocation);
-            GL.VertexAttribPointer(normalLocation, 3, VertexAttribPointerType.Float, false, 8 * sizeof(float), 3 * sizeof(float));
-
-            var texCoordLocation = shader.GetAttribLocation("aTexCoords");
-            GL.EnableVertexAttribArray(texCoordLocation);
-            GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 8 * sizeof(float), 6 * sizeof(float));
-
-            GL.BindVertexArray(0);
-
-            return new Mesh { vao = vao, vbo = vbo, ebo = ebo, indicesCount = indices.Length };
+        /// <summary>
+        /// Создает модель куба с заданным размером
+        /// </summary>
+        /// <param name="shader">Шейдер для рендеринга куба</param>
+        /// <param name="size">Размер куба (по умолчанию 1.0)</param>
+        /// <returns>Полную модель куба</returns>
+        public static Model CreateCubeModel(Shader shader, float size = 1.0f)
+        {
+            var mesh = CreateCube(shader, size);
+            return new Model(new List<Mesh> { mesh });
         }
     }
 }

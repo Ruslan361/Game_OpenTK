@@ -5,9 +5,10 @@ using System;
 
 namespace Simple3DGame.Rendering
 {
-    public class Texture
+    public class Texture : IDisposable
     {
         private readonly int handle;
+        private bool disposedValue = false;
         
         // Add a public property to access the handle
         public int Handle => handle;
@@ -96,6 +97,35 @@ namespace Simple3DGame.Rendering
         {
             GL.ActiveTexture(unit);
             GL.BindTexture(TextureTarget.Texture2D, handle);
+        }
+
+        // Implement IDisposable
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                    // Dispose managed state (managed objects)
+                }
+
+                // Free unmanaged resources (unmanaged objects)
+                GL.DeleteTexture(handle);
+                disposedValue = true;
+            }
+        }
+
+        ~Texture()
+        {
+            // Не изменяйте этот код. Разместите код очистки в методе Dispose(bool disposing)
+            Dispose(disposing: false);
+        }
+
+        public void Dispose()
+        {
+            // Не изменяйте этот код. Разместите код очистки в методе Dispose(bool disposing)
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 }

@@ -6,9 +6,7 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace Simple3DGame
 {
-    // Оставляем только определение базового класса Component
-    public abstract class Component
-    {
-        // Базовые методы или свойства компонентов (если нужны)
-    }
+    // Этот файл помечен на удаление.
+    // Весь функционал перенесен в Simple3DGame.Core.ECS.IComponent
+    // См. /home/ruslan/pr/Game_OpenTK/Core/ECS/IComponent.cs
 }

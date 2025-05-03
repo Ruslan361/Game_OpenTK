@@ -36,6 +36,11 @@ namespace Simple3DGame.Config
         public string LogFilePath { get; private set; }
         public string DefaultModelName { get; private set; } = "sample.obj";
 
+        // Window settings
+        public int WindowWidth { get; set; } = 1280;
+        public int WindowHeight { get; set; } = 720;
+        public string WindowTitle { get; set; } = "Simple 3D Game";
+
         // Shader files
         public string VertexShaderPath { get; private set; }
         public string FragmentShaderPath { get; private set; }
