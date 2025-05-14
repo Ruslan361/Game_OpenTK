@@ -23,51 +23,72 @@ namespace Simple3DGame.Models
             
             // Вершины куба (позиция, нормаль, текстурные координаты)
             float[] vertices = {
-                // Передняя грань
-                -halfSize, -halfSize,  halfSize,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f, // Нижний левый
-                 halfSize, -halfSize,  halfSize,  0.0f,  0.0f,  1.0f,  1.0f, 0.0f, // Нижний правый
-                 halfSize,  halfSize,  halfSize,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f, // Верхний правый
-                -halfSize,  halfSize,  halfSize,  0.0f,  0.0f,  1.0f,  0.0f, 1.0f, // Верхний левый
+            // Передняя грань
+            -halfSize, -halfSize,  halfSize,  0.0f,  0.0f,  1.0f,  0.0f, 0.0f, // Нижний левый
+             halfSize, -halfSize,  halfSize,  0.0f,  0.0f,  1.0f,  1.0f, 0.0f, // Нижний правый
+             halfSize,  halfSize,  halfSize,  0.0f,  0.0f,  1.0f,  1.0f, 1.0f, // Верхний правый
+            -halfSize,  halfSize,  halfSize,  0.0f,  0.0f,  1.0f,  0.0f, 1.0f, // Верхний левый
 
-                // Задняя грань
-                 halfSize, -halfSize, -halfSize,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f, // Нижний левый
-                -halfSize, -halfSize, -halfSize,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f, // Нижний правый
-                -halfSize,  halfSize, -halfSize,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f, // Верхний правый
-                 halfSize,  halfSize, -halfSize,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f, // Верхний левый
+            // Задняя грань
+             halfSize, -halfSize, -halfSize,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f, // Нижний левый
+            -halfSize, -halfSize, -halfSize,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f, // Нижний правый
+            -halfSize,  halfSize, -halfSize,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f, // Верхний правый
+             halfSize,  halfSize, -halfSize,  0.0f,  0.0f, -1.0f,  0.0f, 1.0f, // Верхний левый
 
-                // Левая грань
-                -halfSize, -halfSize, -halfSize, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f, // Нижний левый
-                -halfSize, -halfSize,  halfSize, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f, // Нижний правый
-                -halfSize,  halfSize,  halfSize, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f, // Верхний правый
-                -halfSize,  halfSize, -halfSize, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f, // Верхний левый
+            // Левая грань
+            -halfSize, -halfSize, -halfSize, -1.0f,  0.0f,  0.0f,  0.0f, 0.0f, // Нижний левый
+            -halfSize, -halfSize,  halfSize, -1.0f,  0.0f,  0.0f,  1.0f, 0.0f, // Нижний правый
+            -halfSize,  halfSize,  halfSize, -1.0f,  0.0f,  0.0f,  1.0f, 1.0f, // Верхний правый
+            -halfSize,  halfSize, -halfSize, -1.0f,  0.0f,  0.0f,  0.0f, 1.0f, // Верхний левый
 
-                // Правая грань
-                 halfSize, -halfSize,  halfSize,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f, // Нижний левый
-                 halfSize, -halfSize, -halfSize,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, // Нижний правый
-                 halfSize,  halfSize, -halfSize,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f, // Верхний правый
-                 halfSize,  halfSize,  halfSize,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f, // Верхний левый
+            // Правая грань
+             halfSize, -halfSize,  halfSize,  1.0f,  0.0f,  0.0f,  0.0f, 0.0f, // Нижний левый
+             halfSize, -halfSize, -halfSize,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, // Нижний правый
+             halfSize,  halfSize, -halfSize,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f, // Верхний правый
+             halfSize,  halfSize,  halfSize,  1.0f,  0.0f,  0.0f,  0.0f, 1.0f, // Верхний левый
 
-                // Верхняя грань
-                -halfSize,  halfSize,  halfSize,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f, // Нижний левый
-                 halfSize,  halfSize,  halfSize,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f, // Нижний правый
-                 halfSize,  halfSize, -halfSize,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f, // Верхний правый
-                -halfSize,  halfSize, -halfSize,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f, // Верхний левый
+            // Верхняя грань
+            -halfSize,  halfSize,  halfSize,  0.0f,  1.0f,  0.0f,  0.0f, 0.0f, // Нижний левый
+             halfSize,  halfSize,  halfSize,  0.0f,  1.0f,  0.0f,  1.0f, 0.0f, // Нижний правый
+             halfSize,  halfSize, -halfSize,  0.0f,  1.0f,  0.0f,  1.0f, 1.0f, // Верхний правый
+            -halfSize,  halfSize, -halfSize,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f, // Верхний левый
 
-                // Нижняя грань
-                -halfSize, -halfSize, -halfSize,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f, // Нижний левый
-                 halfSize, -halfSize, -halfSize,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f, // Нижний правый
-                 halfSize, -halfSize,  halfSize,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f, // Верхний правый
-                -halfSize, -halfSize,  halfSize,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f  // Верхний левый
+            // Нижняя грань
+            -halfSize, -halfSize, -halfSize,  0.0f, -1.0f,  0.0f,  0.0f, 0.0f, // Нижний левый
+             halfSize, -halfSize, -halfSize,  0.0f, -1.0f,  0.0f,  1.0f, 0.0f, // Нижний правый
+             halfSize, -halfSize,  halfSize,  0.0f, -1.0f,  0.0f,  1.0f, 1.0f, // Верхний правый
+            -halfSize, -halfSize,  halfSize,  0.0f, -1.0f,  0.0f,  0.0f, 1.0f  // Верхний левый
             };
 
             // Индексы для отрисовки граней
             uint[] indices = {
-                0, 1, 2, 2, 3, 0,       // Передняя грань
-                4, 5, 6, 6, 7, 4,       // Задняя грань
-                8, 9, 10, 10, 11, 8,     // Левая грань
-                12, 13, 14, 14, 15, 12,  // Правая грань
-                16, 17, 18, 18, 19, 16,  // Верхняя грань
-                20, 21, 22, 22, 23, 20   // Нижняя грань
+            0, 1, 2, 2, 3, 0,       // Передняя грань
+            4, 5, 6, 6, 7, 4,       // Задняя грань
+            8, 9, 10, 10, 11, 8,     // Левая грань
+            12, 13, 14, 14, 15, 12,  // Правая грань
+            16, 17, 18, 18, 19, 16,  // Верхняя грань
+            20, 21, 22, 22, 23, 20   // Нижняя грань
+            };
+
+            return new Mesh(vertices, indices);
+        }
+
+        public static Mesh CreatePlane(Shader shader, float width = 1.0f, float height = 1.0f)
+        {
+            float halfWidth = width * 0.5f;
+            float halfHeight = height * 0.5f;
+
+            // Вершины плоскости (позиция, нормаль, текстурные координаты)
+            float[] vertices = {
+            -halfWidth, 0.0f, -halfHeight,  0.0f, 1.0f, 0.0f,  0.0f, 0.0f, // Нижний левый
+             halfWidth, 0.0f, -halfHeight,  0.0f, 1.0f, 0.0f,  1.0f, 0.0f, // Нижний правый
+             halfWidth, 0.0f,  halfHeight,  0.0f, 1.0f, 0.0f,  1.0f, 1.0f, // Верхний правый
+            -halfWidth, 0.0f,  halfHeight,  0.0f, 1.0f, 0.0f,  0.0f, 1.0f  // Верхний левый
+            };
+
+            // Индексы для отрисовки плоскости
+            uint[] indices = {
+            0, 1, 2, 2, 3, 0
             };
 
             return new Mesh(vertices, indices);

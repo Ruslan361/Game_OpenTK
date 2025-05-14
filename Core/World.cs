@@ -34,6 +34,11 @@ namespace Simple3DGame.Core
         private Model? _sampleModel; // Use Model type directly
         private Mesh? _cubeMesh; // For light representation
 
+        // Floor resources
+        private Model? _floorModel;
+        private Texture? _floorDiffuseTexture;
+        private Texture? _floorSpecularTexture;
+
 
         // --- Removed old fields ---
         // private readonly Vector3 _lightPos = new Vector3(1.2f, 1.0f, 2.0f); // Removed - Use components
@@ -234,12 +239,63 @@ namespace Simple3DGame.Core
                 _lightCubeShader = new Shader(_config.VertexShaderPath, _config.FragmentShaderPath); // Simple shader for light markers
 
                 string modelPath = Path.Combine(_config.ModelsPath, _config.DefaultModelName);
-                // Pass shader to LoadModel - Assuming CjObjLoader needs it
-                // Check CjObjLoader.cs if this is correct
                 _sampleModel = CjObjLoader.LoadModel(modelPath, _lightingShader);
-
-                // Pass shader to CreateCube - Assuming ModelFactory needs it
                 _cubeMesh = ModelFactory.CreateCube(_lightCubeShader);
+
+
+                var floorEntity = CreateEntity();
+
+                // --- Create Floor ---
+                _logger.LogInformation("Creating floor...");
+                float floorY = -0.55f; // Position it slightly below origin-centered cubes
+                float floorTextureTileFactor = 10.0f; // How many times to tile the texture
+                float floorSize = 20.0f; // Total size of the floor plane (e.g., 20x20 units)
+
+                // Изменен порядок вершин для правильной ориентации нормалей (по часовой стрелке)
+                float[] floorVertices = {
+                    // Positions                     // Normals           // Texture Coords
+                    -floorSize, floorY, -floorSize,  0.0f, 1.0f, 0.0f,  0.0f, 0.0f,
+                     floorSize, floorY, -floorSize,  0.0f, 1.0f, 0.0f,  floorTextureTileFactor, 0.0f,
+                     floorSize, floorY,  floorSize,  0.0f, 1.0f, 0.0f,  floorTextureTileFactor, floorTextureTileFactor,
+                    -floorSize, floorY,  floorSize,  0.0f, 1.0f, 0.0f,  0.0f, floorTextureTileFactor
+                };
+                
+                // Порядок индексов изменен для правильного направления грани
+                uint[] floorIndices = {
+                    2, 1, 0,  // Первый треугольник: 0-1-2 (нижний левый -> нижний правый -> верхний правый)
+                    3, 2, 0   // Второй треугольник: 0-2-3 (нижний левый -> верхний правый -> верхний левый)
+                };
+
+                var floorMesh = new Mesh(floorVertices, floorIndices);
+
+                // Load floor textures
+                string floorDiffusePath = Path.Combine(_config.TexturesPath, "wood-4.jpg");
+                string floorSpecularPath = Path.Combine(_config.TexturesPath, "wood-4-1.jpg");
+
+                _floorDiffuseTexture = Texture.LoadFromFile(floorDiffusePath);
+                _floorSpecularTexture = Texture.LoadFromFile(floorSpecularPath);
+
+                var floorMeshes = new List<Mesh> { floorMesh };
+                var floorDiffuseMaps = new List<Texture> { _floorDiffuseTexture };
+                var floorSpecularMaps = new List<Texture> { _floorSpecularTexture };
+
+                _floorModel = new Model(floorMeshes);
+                _floorModel.SpecularMap = floorSpecularMaps.FirstOrDefault();
+                _floorModel.DiffuseMap = floorDiffuseMaps.FirstOrDefault();
+
+                _logger.LogInformation("Floor model created.");
+
+                // Add components to the floor entity - исправлен масштаб, чтобы не масштабировать по Y
+                AddComponent(floorEntity, new TransformComponent(
+                    Vector3.Zero, 
+                    Quaternion.Identity, 
+                    new Vector3(1.0f, 1.0f, 1.0f))); // Убираем масштабирование, используя уже большой размер в вершинах
+                
+                // Увеличиваем shininess для более выраженного блеска
+                AddComponent(floorEntity, new RenderComponent(_floorModel, _lightingShader, 64.0f));
+                _logger.LogInformation("Floor entity configured with Transform and Render components.");
+                // --- End Create Floor ---
+                
 
                 // 2. Create Entities and Components
 
@@ -356,7 +412,7 @@ namespace Simple3DGame.Core
                 camera.ProcessKeyboard(CameraMovement.Left, deltaTime);
             if (keyboardState.IsKeyDown(Keys.D))
                 camera.ProcessKeyboard(CameraMovement.Right, deltaTime);
-            
+            camera.ProcessMouseMovement(mouseState.Delta.X, mouseState.Delta.Y);
         }
 
         public void Cleanup()
@@ -366,6 +422,11 @@ namespace Simple3DGame.Core
              _lightCubeShader?.Dispose();
              _sampleModel?.Dispose(); // Model should implement IDisposable
              _cubeMesh?.Dispose();    // Mesh now implements IDisposable
+
+             // Dispose floor resources
+             _floorModel?.Dispose();
+             _floorDiffuseTexture?.Dispose();
+             _floorSpecularTexture?.Dispose();
 
              _entities.Clear();
              _components.Clear();
