@@ -7,6 +7,9 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 using Simple3DGame.Config;
 using Simple3DGame.Core;
 using Simple3DGame.Core.Logging; // Use the specific logger wrapper
+using Simple3DGame.Rendering;
+using Simple3DGame.UI;
+using Simple3DGame.Core.ECS.Systems; // for RenderSystem
 using System;
 
 namespace Simple3DGame
@@ -21,119 +24,139 @@ namespace Simple3DGame
         private bool _firstMove = true;
         private Vector2 _lastPos;
 
+        private GameStateManager _gameStateManager;
+        private ImGuiController _imGuiController;
+        private Simple3DGame.UI.UIManager _uiManager;
+        private bool _sceneLoaded = false;
+        private RenderSystem _renderSystem;
+
         // Constructor receives dependencies from DI
         public Game(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings, ILogger<Game> logger, ConfigSettings config)
             : base(gameWindowSettings, nativeWindowSettings)
         {
-            _logger = new GameLogger(logger); // Wrap the provided logger
+            _logger = new GameLogger(logger);
             _config = config;
-            _logger.Initialized(nativeWindowSettings.ClientSize); // Use ClientSize instead of Size
+            _logger.Initialized(nativeWindowSettings.ClientSize);
+            // Setup state manager
+            _gameStateManager = new GameStateManager(logger);
+            // Subscribe to state changes
+            _gameStateManager.OnGameStateChanged += state => {
+                if (state == Core.GameState.Playing)
+                {
+                    if (!_sceneLoaded) InitializeScene();
+                    CursorState = CursorState.Grabbed;
+                }
+                else if (state == Core.GameState.Paused)
+                {
+                    CursorState = CursorState.Normal;
+                }
+                else if (state == Core.GameState.MainMenu)
+                {
+                    CursorState = CursorState.Normal;
+                }
+            };
+            // Start in menu: show cursor
+            CursorState = CursorState.Normal;
         }
 
         protected override void OnLoad()
         {
             base.OnLoad();
-            _logger.GameLoading(); // Use logger wrapper method
+            // Initialize UI
+            _imGuiController = new ImGuiController(Size.X, Size.Y);
+            _uiManager = new Simple3DGame.UI.UIManager(_gameStateManager);
+        }
 
-            // Use correct Camera constructor with logger
+        // Add method to initialize the scene when playing begins
+        private void InitializeScene()
+        {
+            _sceneLoaded = true;
+            // Create camera and world as before
             _camera = new Camera(
-                new Vector3(0.0f, 0.0f, 3.0f), 
-                Size.X / (float)Size.Y, 
+                new Vector3(0.0f, 5.0f, 10.0f),
+                Size.X / (float)Size.Y,
                 ApplicationLogger.CreateLogger<Camera>());
-            // Position is set in constructor, no need to set again
-
-            // Create World using logger from ApplicationLogger (assuming it's initialized)
-            try
-            {
-                _world = new World(ApplicationLogger.CreateLogger<World>(), _config, _camera);
-                _world.Load(Size.X, Size.Y);
-            }
-            catch (InvalidOperationException ex) // Catch if ApplicationLogger wasn't initialized
-            {
-                 _logger.LogCritical("Failed to create logger for World. ApplicationLogger not initialized?", ex); // Use logger wrapper method
-                 Close();
-                 return;
-            }
-            catch (Exception ex)
-            {
-                 _logger.LogCritical("Failed to load World.", ex); // Use logger wrapper method
-                 Close();
-                 return;
-            }
-
+            _world = new World(ApplicationLogger.CreateLogger<World>(), _config, _camera);
+            // Add game systems including rendering
+            AddGameSystems();
+            _world.Load(Size.X, Size.Y);
+            // Prepare GL state
+            GL.ClearColor(0.1f, 0.1f, 0.15f, 1.0f);
+            GL.Enable(EnableCap.DepthTest);
+            GL.Enable(EnableCap.CullFace);
+            // Hide menu cursor, grab for gameplay
             CursorState = CursorState.Grabbed;
-             if (CursorState == CursorState.Grabbed)
-             {
-                 _logger.LogInformation("Cursor grabbed."); // Use logger wrapper method
-             } else {
-                 _logger.LogWarning("Failed to grab cursor."); // Use logger wrapper method
-             }
-            _firstMove = true;
+        }
 
-            _logger.GameLoadedSuccessfully(); // Use logger wrapper method
+        // Add method to initialize game systems including rendering
+        private void AddGameSystems()
+        {
+            if (_world == null || _camera == null) return;
+            _renderSystem = new RenderSystem(_camera);
+            _world.AddSystem(_renderSystem);
         }
 
         protected override void OnRenderFrame(FrameEventArgs e)
         {
             base.OnRenderFrame(e);
-            if (_world == null) return;
+            // Always update UI frame
+            _imGuiController.Update(this, (float)e.Time);
+            if (_gameStateManager.CurrentState == Core.GameState.Playing && _world != null)
+            {
+                // Render 3D scene via RenderSystem
+                GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+                _renderSystem?.Render(_world);
+            }
+            // Render UI overlay
+            _uiManager.RenderUI();
+            _imGuiController.Render();
             SwapBuffers();
         }
 
         protected override void OnUpdateFrame(FrameEventArgs e)
         {
             base.OnUpdateFrame(e);
-
-            if (_world == null || _camera == null || !IsFocused) return;
-
-            var keyboardState = KeyboardState;
-            var mouseState = MouseState;
-
-            if (keyboardState.IsKeyDown(Keys.Escape))
+            // UI and menu navigation
+            if (_gameStateManager.CurrentState == Core.GameState.MainMenu)
+                return;
+            // Get input states
+            var keyboard = KeyboardState;
+            var mouse = MouseState;
+            // Toggle pause with P
+            if (_gameStateManager.CurrentState == Core.GameState.Playing && keyboard.IsKeyPressed(Keys.P))
             {
-                _logger.LogInformation("Escape key pressed. Closing window."); // Use logger wrapper method
-                Close();
+                _gameStateManager.ChangeState(Core.GameState.Paused);
                 return;
             }
-
-            // --- Mouse Input Handling ---
-            if (CursorState == CursorState.Grabbed)
+            if (_gameStateManager.CurrentState == Core.GameState.Paused && keyboard.IsKeyPressed(Keys.P))
             {
-                if (_firstMove)
-                {
-                    _lastPos = new Vector2(mouseState.X, mouseState.Y);
-                    _firstMove = false;
-                }
-                else
-                {
-                    var deltaX = mouseState.X - _lastPos.X;
-                    var deltaY = mouseState.Y - _lastPos.Y;
-                    _lastPos = new Vector2(mouseState.X, mouseState.Y);
-                    if (deltaX != 0 || deltaY != 0)
-                    {
-                        _camera.ProcessMouseMovement(deltaX, deltaY);
-                    }
-                }
+                _gameStateManager.ChangeState(Core.GameState.Playing);
+                return;
             }
-            else
+            if (_gameStateManager.CurrentState == Core.GameState.Paused)
             {
-                 _firstMove = true;
+                // Unlock cursor in pause
+                if (CursorState != CursorState.Normal)
+                    CursorState = CursorState.Normal;
+                return;
             }
-
-            // --- World Update ---
-            try
+            // In gameplay, update world
+            if (_world == null || _camera == null || !IsFocused) return;
+            if (keyboard.IsKeyDown(Keys.Escape))
             {
-                _world.Update((float)e.Time, keyboardState, mouseState);
+                _gameStateManager.ChangeState(Core.GameState.MainMenu);
             }
-            catch (Exception ex)
-            {
-                 _logger.LogError("Error during World Update.", ex); // Use logger wrapper method
-            }
+            _world.Update((float)e.Time, keyboard, mouse);
         }
 
         protected override void OnMouseMove(MouseMoveEventArgs e)
         {
             base.OnMouseMove(e);
+            // Allow camera rotation during pause
+            if (_gameStateManager.CurrentState == Core.GameState.Paused && _camera != null)
+            {
+                _camera.ProcessMouseMovement(e.DeltaX, e.DeltaY);
+            }
         }
 
         protected override void OnMouseWheel(MouseWheelEventArgs e)

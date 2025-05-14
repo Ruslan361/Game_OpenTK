@@ -228,5 +228,42 @@ namespace Simple3DGame.Core.ECS.Systems
                 // Don't set other spotlight uniforms when not using spotlight
             }
         }
+
+        // Render scene: called from Game.OnRenderFrame
+        public void Render(World world)
+        {
+            // Prepare lights data
+            CacheLights(world);
+            
+            // Get entities with transform and render components
+            var renderable = world.GetEntitiesWithComponents(typeof(TransformComponent), typeof(RenderComponent));
+            foreach (var entity in renderable)
+            {
+                if (!world.TryGetComponent<TransformComponent>(entity, out var transform)) continue;
+                var render = world.GetComponent<RenderComponent>(entity);
+                if (render == null || render.Model == null || render.Shader == null) continue;
+
+                // Setup shader
+                render.Shader.Use();
+                render.Shader.SetMatrix4("view", _camera.GetViewMatrix());
+                render.Shader.SetMatrix4("projection", _camera.GetProjectionMatrix());
+
+                // Lighting uniforms if supported
+                if (SupportsLighting(render.Shader))
+                {
+                    render.Shader.SetVector3("viewPos", _camera.Position);
+                    render.Shader.SetInt("material.diffuse", 0);
+                    render.Shader.SetInt("material.specular", 1);
+                    render.Shader.SetFloat("material.shininess", render.Shininess);
+                    SetLightUniforms(render.Shader);
+                }
+
+                // Model transform
+                render.Shader.SetMatrix4("model", transform.GetModelMatrix());
+                render.Model.Render();
+            }
+
+            GL.UseProgram(0);
+        }
     }
 }

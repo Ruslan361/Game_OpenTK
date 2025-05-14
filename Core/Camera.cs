@@ -34,7 +34,7 @@ namespace Simple3DGame.Core
 
         // Configurable movement/sensitivity
         public float MovementSpeed { get; set; } = 2.5f;
-        public float MouseSensitivity { get; set; } = 0.025f; // Reduced from 0.1f to 0.025f for smoother camera rotation
+        public float MouseSensitivity { get; set; } = 0.0025f; // Reduced from 0.1f to 0.025f for smoother camera rotation
         public float ZoomSensitivity { get; set; } = 1.0f;
         public float MinFov { get; set; } = MathHelper.DegreesToRadians(1.0f); // Using 1.0 degree as minimum to avoid zero
         public float MaxFov { get; set; } = MathHelper.DegreesToRadians(90.0f); // Adjust max FOV

@@ -356,6 +356,7 @@ namespace Simple3DGame.Core
                 camera.ProcessKeyboard(CameraMovement.Left, deltaTime);
             if (keyboardState.IsKeyDown(Keys.D))
                 camera.ProcessKeyboard(CameraMovement.Right, deltaTime);
+            
         }
 
         public void Cleanup()

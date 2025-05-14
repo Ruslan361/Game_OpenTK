@@ -120,13 +120,6 @@ namespace Simple3DGame.Rendering
             io.MouseWheel = mouseState.ScrollDelta.Y;
             io.MouseWheelH = mouseState.ScrollDelta.X;
 
-            // Updated KeysDown handling - using correct type conversion
-            foreach (Keys key in Enum.GetValues(typeof(Keys)))
-            {
-                if (key == Keys.Unknown) continue;
-                io.KeysData[(int)key].Down = keyboardState.IsKeyDown(key) ? (byte)1 : (byte)0;
-            }
-
             foreach (var c in _pressedChars)
             {
                 io.AddInputCharacter(c);
