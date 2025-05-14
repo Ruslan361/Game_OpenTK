@@ -38,6 +38,9 @@ namespace Simple3DGame.Core
         private Model? _floorModel;
         private Texture? _floorDiffuseTexture;
         private Texture? _floorSpecularTexture;
+        
+        // Skybox
+        private Skybox? _skybox;
 
 
         // --- Removed old fields ---
@@ -242,7 +245,129 @@ namespace Simple3DGame.Core
                 _sampleModel = CjObjLoader.LoadModel(modelPath, _lightingShader);
                 _cubeMesh = ModelFactory.CreateCube(_lightCubeShader);
 
+                Entity floorEntity = CreateFloor();
 
+                // Add components to the floor entity - исправлен масштаб, чтобы не масштабировать по Y
+                AddComponent(floorEntity, new TransformComponent(
+                    Vector3.Zero,
+                    Quaternion.Identity,
+                    new Vector3(1.0f, 1.0f, 1.0f))); // Убираем масштабирование, используя уже большой размер в вершинах
+
+                // Увеличиваем shininess для более выраженного блеска
+                AddComponent(floorEntity, new RenderComponent(_floorModel, _lightingShader, 64.0f));
+                _logger.LogInformation("Floor entity configured with Transform and Render components.");
+                // --- End Create Floor ---
+
+
+                // 2. Create Entities and Components
+
+                // Create Cube Entities
+                if (_sampleModel != null && _lightingShader != null) // Check Model (class) for null
+                {
+                    float angle = 0f;
+                    foreach (var pos in _cubePositions)
+                    {
+                        var cubeEntity = CreateEntity();
+                        angle += 20.0f;
+                        var rotation = Quaternion.FromAxisAngle(new Vector3(1.0f, 0.3f, 0.5f).Normalized(), MathHelper.DegreesToRadians(angle));
+                        // Use correct TransformComponent constructor
+                        AddComponent(cubeEntity, new TransformComponent(pos, rotation, Vector3.One));
+                        // Use correct RenderComponent constructor
+                        AddComponent(cubeEntity, new RenderComponent(_sampleModel, _lightingShader, 32.0f));
+                    }
+                    _logger.LogInformation($"Created {_cubePositions.Length} cube entities."); // Use logger wrapper method
+                }
+                else
+                {
+                    _logger.LogError("Failed to load sample model or lighting shader. Cannot create cube entities."); // Use logger wrapper method
+                }
+
+
+                // Create Point Light Entities
+                if (_cubeMesh != null && _lightCubeShader != null) // Check Mesh (class) for null
+                {
+                    foreach (var pos in _pointLightPositions)
+                    {
+                        var lightEntity = CreateEntity();
+                        AddComponent(lightEntity, new TransformComponent(pos, Quaternion.Identity, new Vector3(0.2f)));
+                        AddComponent(lightEntity, LightComponent.CreatePointLight(pos));
+                        // RenderComponent needs Model, not Mesh. Create a Model from the Mesh.
+                        // Assuming Model constructor takes a Mesh.
+                        var lightModel = new Model(new List<Mesh> { _cubeMesh });
+                        AddComponent(lightEntity, new RenderComponent(lightModel, _lightCubeShader));
+                    }
+                    _logger.LogInformation($"Created {_pointLightPositions.Length} point light entities."); // Use logger wrapper method
+                }
+                else
+                {
+                    _logger.LogError("Failed to load cube mesh or light cube shader. Cannot create light entities."); // Use logger wrapper method
+                }
+
+
+                // Create Directional Light Entity (Data only)
+                var dirLightEntity = CreateEntity();
+                AddComponent(dirLightEntity, LightComponent.CreateDirectionalLight(new Vector3(-0.2f, -1.0f, -0.3f)));
+                _logger.LogInformation("Created directional light data entity."); // Use logger wrapper method
+                                                                                  // No Transform or Render component needed if it's just data
+
+
+                // Create Camera Spotlight Entity (Data only, position/direction handled by RenderSystem)
+                var spotlightDataEntity = CreateEntity();
+                // Add Transform (initial position, RenderSystem will use camera's)
+                AddComponent(spotlightDataEntity, new TransformComponent(_camera.Position));
+                // Add Light component
+                AddComponent(spotlightDataEntity, LightComponent.CreateSpotLight(_camera.Position, _camera.Front));
+                _logger.LogInformation("Created camera spotlight data entity."); // Use logger wrapper method
+
+                // Создаем Skybox из отдельных изображений
+                string[] skyboxFaces = new string[6];
+                string texturesPath = _config.TexturesPath;
+                
+                // Порядок загрузки кубических текстур:
+                // +X (правая), -X (левая), +Y (верх), -Y (низ), +Z (перед), -Z (зад)
+                skyboxFaces[0] = Path.Combine(texturesPath, "vz_clear_ocean_right.png");
+                skyboxFaces[1] = Path.Combine(texturesPath, "vz_clear_ocean_left.png");
+                skyboxFaces[2] = Path.Combine(texturesPath, "vz_clear_ocean_up.png");
+                skyboxFaces[3] = Path.Combine(texturesPath, "vz_clear_ocean_down.png");  // Используем доступную текстуру down
+                skyboxFaces[4] = Path.Combine(texturesPath, "vz_clear_ocean_front.png");
+                skyboxFaces[5] = Path.Combine(texturesPath, "vz_clear_ocean_back.png");   // Используем доступную текстуру back
+                
+                // Проверяем наличие всех необходимых файлов
+                bool allFilesExist = true;
+                foreach (string face in skyboxFaces)
+                {
+                    if (!File.Exists(face))
+                    {
+                        _logger.LogWarning($"Текстура скайбокса не найдена: {face}");
+                        allFilesExist = false;
+                    }
+                }
+                
+                if (allFilesExist)
+                {
+                    // Теперь не используем параметр масштаба, так как вершины скайбокса уже имеют большой размер
+                    _skybox = new Skybox(skyboxFaces);
+                    _logger.LogInformation("Skybox создан с использованием отдельных текстур");
+                }
+                else
+                {
+                    _logger.LogWarning("Не удалось создать скайбокс - отсутствуют некоторые файлы текстур");
+                }
+
+
+                // 3. Add Systems
+                AddSystem(new RenderSystem(_camera)); // Pass the camera to the RenderSystem
+
+                _logger.WorldLoadingSuccessful(); // Use logger wrapper method
+            }
+            catch (Exception ex)
+            {
+                _logger.LogCritical("Critical error during World loading.", ex); // Use logger wrapper method
+                throw;
+            }
+
+            Entity CreateFloor()
+            {
                 var floorEntity = CreateEntity();
 
                 // --- Create Floor ---
@@ -259,7 +384,7 @@ namespace Simple3DGame.Core
                      floorSize, floorY,  floorSize,  0.0f, 1.0f, 0.0f,  floorTextureTileFactor, floorTextureTileFactor,
                     -floorSize, floorY,  floorSize,  0.0f, 1.0f, 0.0f,  0.0f, floorTextureTileFactor
                 };
-                
+
                 // Порядок индексов изменен для правильного направления грани
                 uint[] floorIndices = {
                     2, 1, 0,  // Первый треугольник: 0-1-2 (нижний левый -> нижний правый -> верхний правый)
@@ -284,89 +409,7 @@ namespace Simple3DGame.Core
                 _floorModel.DiffuseMap = floorDiffuseMaps.FirstOrDefault();
 
                 _logger.LogInformation("Floor model created.");
-
-                // Add components to the floor entity - исправлен масштаб, чтобы не масштабировать по Y
-                AddComponent(floorEntity, new TransformComponent(
-                    Vector3.Zero, 
-                    Quaternion.Identity, 
-                    new Vector3(1.0f, 1.0f, 1.0f))); // Убираем масштабирование, используя уже большой размер в вершинах
-                
-                // Увеличиваем shininess для более выраженного блеска
-                AddComponent(floorEntity, new RenderComponent(_floorModel, _lightingShader, 64.0f));
-                _logger.LogInformation("Floor entity configured with Transform and Render components.");
-                // --- End Create Floor ---
-                
-
-                // 2. Create Entities and Components
-
-                // Create Cube Entities
-                if (_sampleModel != null && _lightingShader != null) // Check Model (class) for null
-                {
-                    float angle = 0f;
-                    foreach (var pos in _cubePositions)
-                    {
-                        var cubeEntity = CreateEntity();
-                        angle += 20.0f;
-                        var rotation = Quaternion.FromAxisAngle(new Vector3(1.0f, 0.3f, 0.5f).Normalized(), MathHelper.DegreesToRadians(angle));
-                        // Use correct TransformComponent constructor
-                        AddComponent(cubeEntity, new TransformComponent(pos, rotation, Vector3.One));
-                        // Use correct RenderComponent constructor
-                        AddComponent(cubeEntity, new RenderComponent(_sampleModel, _lightingShader, 32.0f));
-                    }
-                     _logger.LogInformation($"Created {_cubePositions.Length} cube entities."); // Use logger wrapper method
-                }
-                else
-                {
-                     _logger.LogError("Failed to load sample model or lighting shader. Cannot create cube entities."); // Use logger wrapper method
-                }
-
-
-                // Create Point Light Entities
-                if (_cubeMesh != null && _lightCubeShader != null) // Check Mesh (class) for null
-                {
-                    foreach (var pos in _pointLightPositions)
-                    {
-                        var lightEntity = CreateEntity();
-                        AddComponent(lightEntity, new TransformComponent(pos, Quaternion.Identity, new Vector3(0.2f)));
-                        AddComponent(lightEntity, LightComponent.CreatePointLight(pos));
-                        // RenderComponent needs Model, not Mesh. Create a Model from the Mesh.
-                        // Assuming Model constructor takes a Mesh.
-                        var lightModel = new Model(new List<Mesh> { _cubeMesh });
-                        AddComponent(lightEntity, new RenderComponent(lightModel, _lightCubeShader));
-                    }
-                     _logger.LogInformation($"Created {_pointLightPositions.Length} point light entities."); // Use logger wrapper method
-                }
-                 else
-                {
-                     _logger.LogError("Failed to load cube mesh or light cube shader. Cannot create light entities."); // Use logger wrapper method
-                }
-
-
-                // Create Directional Light Entity (Data only)
-                 var dirLightEntity = CreateEntity();
-                 AddComponent(dirLightEntity, LightComponent.CreateDirectionalLight(new Vector3(-0.2f, -1.0f, -0.3f)));
-                 _logger.LogInformation("Created directional light data entity."); // Use logger wrapper method
-                // No Transform or Render component needed if it's just data
-
-
-                 // Create Camera Spotlight Entity (Data only, position/direction handled by RenderSystem)
-                 var spotlightDataEntity = CreateEntity();
-                 // Add Transform (initial position, RenderSystem will use camera's)
-                 AddComponent(spotlightDataEntity, new TransformComponent(_camera.Position));
-                 // Add Light component
-                 AddComponent(spotlightDataEntity, LightComponent.CreateSpotLight(_camera.Position, _camera.Front));
-                 _logger.LogInformation("Created camera spotlight data entity."); // Use logger wrapper method
-
-
-                // 3. Add Systems
-                AddSystem(new RenderSystem(_camera)); // Pass the camera to the RenderSystem
-
-                _logger.WorldLoadingSuccessful(); // Use logger wrapper method
-            }
-            catch (Exception ex)
-            {
-                _logger.LogCritical("Critical error during World loading.", ex); // Use logger wrapper method
-                throw;
+                return floorEntity;
             }
         }
 
@@ -412,7 +455,7 @@ namespace Simple3DGame.Core
                 camera.ProcessKeyboard(CameraMovement.Left, deltaTime);
             if (keyboardState.IsKeyDown(Keys.D))
                 camera.ProcessKeyboard(CameraMovement.Right, deltaTime);
-            camera.ProcessMouseMovement(mouseState.Delta.X, mouseState.Delta.Y);
+            camera.ProcessMouseMovement(mouseState.Delta.X, 0);
         }
 
         public void Cleanup()
@@ -427,6 +470,9 @@ namespace Simple3DGame.Core
              _floorModel?.Dispose();
              _floorDiffuseTexture?.Dispose();
              _floorSpecularTexture?.Dispose();
+             
+             // Dispose skybox resources
+             _skybox?.Dispose();
 
              _entities.Clear();
              _components.Clear();
@@ -466,5 +512,8 @@ namespace Simple3DGame.Core
             Dispose(disposing: true);
             GC.SuppressFinalize(this);
         }
+
+        // Getters for resources
+        public Skybox? GetSkybox() => _skybox;
     }
 }

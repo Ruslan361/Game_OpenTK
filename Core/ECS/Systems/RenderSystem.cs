@@ -232,6 +232,17 @@ namespace Simple3DGame.Core.ECS.Systems
         // Render scene: called from Game.OnRenderFrame
         public void Render(World world)
         {
+            // Clear the color and depth buffers first
+            GL.ClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
+            // Рисуем скайбокс первым
+            var skybox = world.GetSkybox();
+            if (skybox != null)
+            {
+                skybox.Draw(_camera.GetViewMatrix(), _camera.GetProjectionMatrix());
+            }
+            
             // Prepare lights data
             CacheLights(world);
             

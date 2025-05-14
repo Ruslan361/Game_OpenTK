@@ -16,7 +16,7 @@ namespace Simple3DGame.Rendering
         private readonly string _vertexPath;
         private readonly string _fragmentPath;
 
-        public Shader(string vertexPath, string fragmentPath)
+        public Shader(string vertexPath, string fragmentPath, bool removeComments = false)
         {
             _vertexPath = vertexPath;
             _fragmentPath = fragmentPath;
@@ -28,6 +28,11 @@ namespace Simple3DGame.Rendering
                 using (StreamReader reader = new StreamReader(vertexPath, Encoding.UTF8))
                 {
                     vertexShaderSource = reader.ReadToEnd();
+                }
+                
+                if (removeComments)
+                {
+                    vertexShaderSource = RemoveComments(vertexShaderSource);
                 }
             }
             catch (Exception e)
@@ -43,6 +48,11 @@ namespace Simple3DGame.Rendering
                 using (StreamReader reader = new StreamReader(fragmentPath, Encoding.UTF8))
                 {
                     fragmentShaderSource = reader.ReadToEnd();
+                }
+                
+                if (removeComments)
+                {
+                    fragmentShaderSource = RemoveComments(fragmentShaderSource);
                 }
             }
             catch (Exception e)
@@ -179,6 +189,19 @@ namespace Simple3DGame.Rendering
             }
         }
 
+        public void SetVector2(string name, Vector2 data)
+        {
+            GL.UseProgram(Handle);
+            if (_uniformLocations.TryGetValue(name, out int location))
+            {
+                GL.Uniform2(location, data);
+            }
+            else
+            {
+                Console.WriteLine($"Warning: Uniform '{name}' not found in shader.");
+            }
+        }
+
         // Implement Dispose pattern
         protected virtual void Dispose(bool disposing)
         {
@@ -207,6 +230,53 @@ namespace Simple3DGame.Rendering
             // Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
             Dispose(disposing: true);
             GC.SuppressFinalize(this);
+        }
+
+        private string RemoveComments(string shaderSource)
+        {
+            var result = new StringBuilder();
+            bool inMultiLineComment = false;
+            int i = 0;
+
+            while (i < shaderSource.Length)
+            {
+                // Проверка начала многострочного комментария
+                if (!inMultiLineComment && i + 1 < shaderSource.Length && shaderSource[i] == '/' && shaderSource[i + 1] == '*')
+                {
+                    inMultiLineComment = true;
+                    i += 2;
+                    continue;
+                }
+
+                // Проверка конца многострочного комментария
+                if (inMultiLineComment && i + 1 < shaderSource.Length && shaderSource[i] == '*' && shaderSource[i + 1] == '/')
+                {
+                    inMultiLineComment = false;
+                    i += 2;
+                    continue;
+                }
+
+                // Проверка однострочного комментария
+                if (!inMultiLineComment && i + 1 < shaderSource.Length && shaderSource[i] == '/' && shaderSource[i + 1] == '/')
+                {
+                    // Пропускаем до конца строки или конца файла
+                    while (i < shaderSource.Length && shaderSource[i] != '\n')
+                    {
+                        i++;
+                    }
+                    continue;
+                }
+
+                // Если не в комментарии, добавляем символ в результат
+                if (!inMultiLineComment)
+                {
+                    result.Append(shaderSource[i]);
+                }
+
+                i++;
+            }
+
+            return result.ToString();
         }
     }
 }
