@@ -39,6 +39,8 @@ namespace Simple3DGame.Core
         public float MinFov { get; set; } = MathHelper.DegreesToRadians(1.0f); // Using 1.0 degree as minimum to avoid zero
         public float MaxFov { get; set; } = MathHelper.DegreesToRadians(90.0f); // Adjust max FOV
 
+        private float _fov = MathHelper.PiOver2; // Default FOV
+
         // Correct constructor signature
         public Camera(Vector3 position, float aspectRatio, ILogger<Camera> logger)
         {
@@ -56,7 +58,31 @@ namespace Simple3DGame.Core
 
         public Matrix4 GetProjectionMatrix()
         {
-            return Matrix4.CreatePerspectiveFieldOfView(_zoom, AspectRatio, 0.1f, 100.0f);
+            return Matrix4.CreatePerspectiveFieldOfView(_fov, AspectRatio, 0.01f, 100f);
+        }
+
+        public void LookAt(Vector3 targetPosition)
+        {
+            this._front = (targetPosition - this.Position).Normalized();
+            // Recalculate Right and Up vectors based on new Front
+            Vector3 globalUp = Vector3.UnitY;
+            this._right = Vector3.Normalize(Vector3.Cross(this._front, globalUp));
+
+            // Handle edge case: looking straight up or down
+            if (this._right.LengthSquared < 0.0001f)
+            {
+                // If Front is aligned with globalUp, use Z-axis to find Right
+                this._right = Vector3.Normalize(Vector3.Cross(this._front, Vector3.UnitZ));
+                if (this._right.LengthSquared < 0.0001f)
+                {
+                     // If Front is also aligned with Z-axis (e.g. looking along Z), fallback to X-axis for Right
+                     this._right = Vector3.UnitX;
+                }
+            }
+            this._up = Vector3.Normalize(Vector3.Cross(this._right, this._front));
+            // Note: This direct manipulation of Front, Right, Up might de-sync Pitch/Yaw
+            // if they are not subsequently recalculated from these vectors.
+            // For a follow camera where LookAt is called every frame, this is usually fine.
         }
 
         public void ProcessKeyboard(CameraMovement direction, float deltaTime)

@@ -20,7 +20,7 @@ namespace Simple3DGame.Core
     {
         private readonly WorldLogger _logger; // Use the specific logger wrapper
         private readonly ConfigSettings _config;
-        private readonly Camera _camera;
+        private Camera _camera; // Changed to non-readonly to allow modification for follow cam
 
         // ECS Core Data Structures
         private readonly List<Entity> _entities = new List<Entity>();
@@ -42,6 +42,15 @@ namespace Simple3DGame.Core
         
         // Skybox
         private Skybox? _skybox;
+
+        // Maze Wall resources
+        private Model? _wallModel;
+        private Texture? _brickDiffuseTexture;
+        private Texture? _brickSpecularTexture;
+
+        // Player Entity
+        private Entity _playerEntity;
+        private Vector3 _cameraOffset = new Vector3(0, 1f, 3f); // Offset from player to camera. X=0, Y=up, Z=behind
 
 
         // --- Removed old fields ---
@@ -244,7 +253,27 @@ namespace Simple3DGame.Core
 
                 string modelPath = Path.Combine(_config.ModelsPath, _config.DefaultModelName);
                 _sampleModel = CjObjLoader.LoadModel(modelPath, _lightingShader);
-                _cubeMesh = ModelFactory.CreateCube(_lightCubeShader);
+                _cubeMesh = ModelFactory.CreateCube(_lightCubeShader); // This cube mesh can be reused
+
+                // Load Brick Textures for Walls
+                string brickDiffusePath = Path.Combine(_config.TexturesPath, "brick-1.jpg");
+                string brickSpecularPath = Path.Combine(_config.TexturesPath, "brick-1-2.jpg");
+                _brickDiffuseTexture = Texture.LoadFromFile(brickDiffusePath);
+                _brickSpecularTexture = Texture.LoadFromFile(brickSpecularPath);
+
+                // Create Wall Model using _cubeMesh and brick textures
+                if (_cubeMesh != null && _brickDiffuseTexture != null && _brickSpecularTexture != null)
+                {
+                    _wallModel = new Model(new List<Mesh> { _cubeMesh }); // Re-use the cube mesh geometry
+                    _wallModel.DiffuseMap = _brickDiffuseTexture; // Assign single texture
+                    _wallModel.SpecularMap = _brickSpecularTexture; // Assign single texture
+                    _logger.LogInformation("Wall model created with brick textures.");
+                }
+                else
+                {
+                    _logger.LogError("Failed to load cube mesh or brick textures for wall model.");
+                }
+
 
                 Entity floorEntity = CreateFloor(); // Floor created first to define its size
 
@@ -259,73 +288,51 @@ namespace Simple3DGame.Core
                 _logger.LogInformation("Floor entity configured with Transform and Render components.");
                 // --- End Create Floor ---
 
-                var lightModel = new Model(new List<Mesh> { _cubeMesh });
-                // 2. Create Entities and Components
+                // Maze Generation and Player/Cube Setup Values
+                int mazeGridWidth = 21; 
+                int mazeGridHeight = 21; 
+                float floorSize = 35.0f; 
+                float cubeSize = 1.0f; 
+                float cellWidthOnFloor = floorSize / mazeGridWidth;
+                float cellHeightOnFloor = floorSize / mazeGridHeight;
 
-                // Maze Generation
-                var mazeGenerator = new MazeGenerator();
-                int mazeGridWidth = 21; // Define how many cells wide the maze is
-                int mazeGridHeight = 21; // Define how many cells tall the maze is
-                int[,] mazeLayout = mazeGenerator.GenerateMazeGrid(mazeGridHeight, mazeGridWidth);
+                GenerateAndPlaceMaze(mazeGridWidth, mazeGridHeight, floorSize, cubeSize, cellWidthOnFloor, cellHeightOnFloor);
 
-                // Create Cube Entities based on Maze
+
+                // Create Player Entity
+                _playerEntity = CreateEntity();
+                // Player starts at the center of the maze's typical start (1,1) if maze is e.g. 11x11 or 21x21
+                float playerStartXCell = 1; // Logical X cell for player start
+                float playerStartZCell = 1; // Logical Z cell for player start
+                float playerX = (playerStartXCell - mazeGridWidth / 2.0f + 0.5f) * cellWidthOnFloor;
+                float playerZ = (playerStartZCell - mazeGridHeight / 2.0f + 0.5f) * cellHeightOnFloor;
+                float playerModelHeight = 2f; // Assuming player model is 0.5 units high
+                float playerY = -0.55f + playerModelHeight / 2.0f; // On floor
+
+                Vector3 playerStartPosition = new Vector3(playerX, playerY, playerZ); 
+                AddComponent(_playerEntity, new TransformComponent(playerStartPosition, Quaternion.Identity, new Vector3(playerModelHeight / 2f))); // Player model scale (e.g., 0.25f if height is 0.5f)
                 if (_sampleModel != null && _lightingShader != null)
                 {
-                    float floorSize = 35.0f; // Must match the floorSize in CreateFloor()
-                    float cubeSize = 1.0f; // Assuming cubes are 1x1x1 units
-                    float cellWidthOnFloor = floorSize / mazeGridWidth;
-                    float cellHeightOnFloor = floorSize / mazeGridHeight;
-                    // Ensure floorY is consistent with CreateFloor. If floorY is -0.55f, then:
-                    float floorYPosition = -0.55f; 
-                    float cubeYPosition = floorYPosition + cubeSize / 2.0f; // Place base of cube on floor
-
-                    int cubesCreated = 0;
-                    for (int r = 0; r < mazeGridHeight; r++)
-                    {
-                        for (int c = 0; c < mazeGridWidth; c++)
-                        {
-                            if (mazeLayout[r, c] == 1) // 1 means wall, place a cube
-                            {
-                                // Calculate position for the cube
-                                // Center of the cell:
-                                float xPos = (c - mazeGridWidth / 2.0f + 0.5f) * cellWidthOnFloor;
-                                float zPos = (r - mazeGridHeight / 2.0f + 0.5f) * cellHeightOnFloor;
-                                Vector3 cubePosition = new Vector3(xPos, cubeYPosition, zPos);
-
-                                var cubeEntity = CreateEntity();
-                                // Random rotation for visual variety, or keep it uniform
-                                var rotation = Quaternion.FromAxisAngle(
-                                    new Vector3(0.0f, 0.0f, 0.0f),
-                                    MathHelper.DegreesToRadians((float)new Random().NextDouble() * 360f)
-                                );
-                                // Scale cubes to fit cell, with a small gap. Use cubeSize for Y scale.
-                                // Change 0.9f to 1.0f for tight fit
-                                AddComponent(cubeEntity, new TransformComponent(cubePosition, rotation, new Vector3(cellWidthOnFloor * 1.0f, cubeSize, cellHeightOnFloor * 1.0f))); 
-                                AddComponent(cubeEntity, new RenderComponent(lightModel, _lightingShader, 32.0f));
-                                cubesCreated++;
-                            }
-                        }
-                    }
-                    _logger.LogInformation($"Created {cubesCreated} cube entities based on maze layout.");
+                    AddComponent(_playerEntity, new RenderComponent(_sampleModel, _lightingShader, 32.0f));
+                    _logger.LogInformation("Player entity created and configured.");
                 }
                 else
                 {
-                    _logger.LogError("Failed to load sample model or lighting shader. Cannot create cube entities for maze.");
+                    _logger.LogError("Failed to load sample model or lighting shader for player.");
                 }
-
 
                 // Create Point Light Entities
                 if (_cubeMesh != null && _lightCubeShader != null) // Check Mesh (class) for null
                 {
+                    // Create a simple model from the _cubeMesh for rendering light markers
+                    var lightMarkerModel = new Model(new List<Mesh> { _cubeMesh }); 
+
                     foreach (var pos in _pointLightPositions)
                     {
                         var lightEntity = CreateEntity();
                         AddComponent(lightEntity, new TransformComponent(pos, Quaternion.Identity, new Vector3(0.2f)));
                         AddComponent(lightEntity, LightComponent.CreatePointLight(pos));
-                        // RenderComponent needs Model, not Mesh. Create a Model from the Mesh.
-                        // Assuming Model constructor takes a Mesh.
-                        //var lightModel = new Model(new List<Mesh> { _cubeMesh });
-                        AddComponent(lightEntity, new RenderComponent(lightModel, _lightCubeShader));
+                        AddComponent(lightEntity, new RenderComponent(lightMarkerModel, _lightCubeShader)); // Use lightMarkerModel
                     }
                     _logger.LogInformation($"Created {_pointLightPositions.Length} point light entities."); // Use logger wrapper method
                 }
@@ -452,8 +459,48 @@ namespace Simple3DGame.Core
             // --- Camera Input Update ---
             // Keep camera updates here for now, driven by Game class input.
             // An InputSystem would be a better place for this.
-            UpdateCameraInput(deltaTime, keyboardState, mouseState, _camera);
+            // UpdateCameraInput(deltaTime, keyboardState, mouseState, _camera); // Old free-look camera
             // --- End Camera Input Update ---
+
+            // --- Player Movement (Example) ---
+            if (TryGetComponent(_playerEntity, out TransformComponent playerTransform))
+            {
+                Vector3 moveDirection = Vector3.Zero;
+                float playerSpeed = 2.0f * deltaTime;
+
+                // Basic movement relative to world axes. For camera-relative, need to use camera.Front/Right
+                if (keyboardState.IsKeyDown(Keys.W)) moveDirection -= Vector3.UnitZ; // Move forward (along world -Z)
+                if (keyboardState.IsKeyDown(Keys.S)) moveDirection += Vector3.UnitZ; // Move backward (along world +Z)
+                if (keyboardState.IsKeyDown(Keys.A)) moveDirection -= Vector3.UnitX; // Move left (along world -X)
+                if (keyboardState.IsKeyDown(Keys.D)) moveDirection += Vector3.UnitX; // Move right (along world +X)
+
+                if (moveDirection != Vector3.Zero)
+                {
+                    moveDirection.Normalize();
+                    playerTransform.Position += moveDirection * playerSpeed;
+
+                    // Calculate rotation based on movement direction
+                    // MathF.Atan2 returns the angle in radians whose tangent is the quotient of two specified numbers.
+                    // We use X and Z for the horizontal plane, pointing the player along the moveDirection vector.
+                    // The angle is around the Y axis.
+                    float targetAngleY = MathF.Atan2(moveDirection.X, moveDirection.Z);
+                    playerTransform.Rotation = Quaternion.FromAxisAngle(Vector3.UnitY, targetAngleY);
+
+                    // Update the component in the ECS
+                    AddComponent(_playerEntity, playerTransform); 
+                }
+
+                // --- Camera Follow Player ---
+                // Calculate desired camera position based on player's current position and offset
+                Vector3 targetCameraPosition = playerTransform.Position + _cameraOffset;
+                
+                // For a simple third-person follow, directly set camera position:
+                _camera.Position = targetCameraPosition;
+                
+                // Make the camera look at the player's position (e.g., center of the player model)
+                _camera.LookAt(playerTransform.Position + new Vector3(0, 0.9f, 0)); // Look at player's center (assuming 0.5f height)
+            }
+            // --- End Player Movement ---
 
 
             // Update all registered systems
@@ -475,21 +522,68 @@ namespace Simple3DGame.Core
         }
 
         // Renamed from Update_Old - Handles camera input specifically
-        private void UpdateCameraInput(float deltaTime, KeyboardState keyboardState, MouseState mouseState, Camera camera)
+        // private void UpdateCameraInput(float deltaTime, KeyboardState keyboardState, MouseState mouseState, Camera camera) // No longer used directly for player follow
+        // {
+        //     // Process keyboard input for camera movement
+        //     if (keyboardState.IsKeyDown(Keys.W))
+        //         camera.ProcessKeyboard(CameraMovement.Forward, deltaTime);
+        //     if (keyboardState.IsKeyDown(Keys.S))
+        //         camera.ProcessKeyboard(CameraMovement.Backward, deltaTime);
+        //     if (keyboardState.IsKeyDown(Keys.A))
+        //         camera.ProcessKeyboard(CameraMovement.Left, deltaTime);
+        //     if (keyboardState.IsKeyDown(Keys.D))
+        //         camera.ProcessKeyboard(CameraMovement.Right, deltaTime);
+        //     camera.ProcessMouseMovement(mouseState.Delta.X, mouseState.Delta.Y);
+        //     if (keyboardState.IsKeyDown(Keys.M))
+        //         Console.WriteLine(camera.Position);
+        // }
+
+        private void GenerateAndPlaceMaze(int mazeGridWidth, int mazeGridHeight, float floorSize, float cubeSize, float cellWidthOnFloor, float cellHeightOnFloor)
         {
-            // Process keyboard input for camera movement
-            if (keyboardState.IsKeyDown(Keys.W))
-                camera.ProcessKeyboard(CameraMovement.Forward, deltaTime);
-            if (keyboardState.IsKeyDown(Keys.S))
-                camera.ProcessKeyboard(CameraMovement.Backward, deltaTime);
-            if (keyboardState.IsKeyDown(Keys.A))
-                camera.ProcessKeyboard(CameraMovement.Left, deltaTime);
-            if (keyboardState.IsKeyDown(Keys.D))
-                camera.ProcessKeyboard(CameraMovement.Right, deltaTime);
-            camera.ProcessMouseMovement(mouseState.Delta.X, mouseState.Delta.Y);
-            if (keyboardState.IsKeyDown(Keys.M))
-                Console.WriteLine(camera.Position);
+            // int mazeGridWidth = 21; 
+            // int mazeGridHeight = 21; 
+            // float floorSize = 20.0f; 
+            // float cubeSize = 1.0f; 
+
+            // float cellWidthOnFloor = floorSize / mazeGridWidth;
+            // float cellHeightOnFloor = floorSize / mazeGridHeight;
+
+            var mazeGenerator = new MazeGenerator();
+            int[,] mazeLayout = mazeGenerator.GenerateMazeGrid(mazeGridHeight, mazeGridWidth);
+
+            if (_wallModel != null && _lightingShader != null)
+            {
+                float floorYPosition = -0.55f; 
+                float cubeYPosition = floorYPosition + cubeSize / 2.0f;
+
+                int cubesCreated = 0;
+                for (int r = 0; r < mazeGridHeight; r++)
+                {
+                    for (int c = 0; c < mazeGridWidth; c++)
+                    {
+                        if (mazeLayout[r, c] == 1) // 1 means wall, place a cube
+                        {
+                            float xPos = (c - mazeGridWidth / 2.0f + 0.5f) * cellWidthOnFloor;
+                            float zPos = (r - mazeGridHeight / 2.0f + 0.5f) * cellHeightOnFloor;
+                            Vector3 cubePosition = new Vector3(xPos, cubeYPosition, zPos);
+
+                            var cubeEntity = CreateEntity();
+                            var rotation = Quaternion.Identity; 
+                            AddComponent(cubeEntity, new TransformComponent(cubePosition, rotation, new Vector3(cellWidthOnFloor * 1.0f, cubeSize, cellHeightOnFloor * 1.0f))); 
+                            // Use _wallModel for maze walls, which has brick textures
+                            AddComponent(cubeEntity, new RenderComponent(_wallModel, _lightingShader, 32.0f)); 
+                            cubesCreated++;
+                        }
+                    }
+                }
+                _logger.LogInformation($"Created {cubesCreated} maze wall entities.");
+            }
+            else
+            {
+                _logger.LogError("Wall model or lighting shader not available. Cannot create maze wall entities.");
+            }
         }
+
 
         public void Cleanup()
         {
@@ -504,6 +598,13 @@ namespace Simple3DGame.Core
              _floorDiffuseTexture?.Dispose();
              _floorSpecularTexture?.Dispose();
              
+             // Dispose wall textures
+             _brickDiffuseTexture?.Dispose();
+             _brickSpecularTexture?.Dispose();
+             // _wallModel itself doesn't need separate disposal if its meshes/textures are managed elsewhere or it doesn't own them exclusively.
+             // However, if _wallModel.Meshes contains a mesh that is ONLY used by _wallModel and needs disposal, handle that.
+             // In this case, _wallModel reuses _cubeMesh, which is disposed. Textures are disposed.
+
              // Dispose skybox resources
              _skybox?.Dispose();
 
