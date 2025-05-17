@@ -12,6 +12,7 @@ using Simple3DGame.Core.Logging;
 using Simple3DGame.Models; // Use correct namespace for Model
 using Simple3DGame.Rendering;
 using System.IO;
+using Simple3DGame.Core.Utils; // Added for MazeGenerator
 
 namespace Simple3DGame.Core
 {
@@ -52,19 +53,19 @@ namespace Simple3DGame.Core
             new Vector3(-4.0f,  2.0f, -12.0f),
             new Vector3( 0.0f,  0.0f, -3.0f)
         };
-        private readonly Vector3[] _cubePositions =
-        {
-            new Vector3( 0.0f,  0.0f,  0.0f),
-            new Vector3( 2.0f,  5.0f, -15.0f),
-            new Vector3(-1.5f, -2.2f, -2.5f),
-            new Vector3(-3.8f, -2.0f, -12.3f),
-            new Vector3( 2.4f, -0.4f, -3.5f),
-            new Vector3(-1.7f,  3.0f, -7.5f),
-            new Vector3( 1.3f, -2.0f, -2.5f),
-            new Vector3( 1.5f,  2.0f, -2.5f),
-            new Vector3( 1.5f,  0.2f, -1.5f),
-            new Vector3(-1.3f,  1.0f, -1.5f)
-        };
+        // private readonly Vector3[] _cubePositions = // This will be replaced by maze generation
+        // {
+        //     new Vector3( 0.0f,  0.0f,  0.0f),
+        //     new Vector3( 2.0f,  5.0f, -15.0f),
+        //     new Vector3(-1.5f, -2.2f, -2.5f),
+        //     new Vector3(-3.8f, -2.0f, -12.3f),
+        //     new Vector3( 2.4f, -0.4f, -3.5f),
+        //     new Vector3(-1.7f,  3.0f, -7.5f),
+        //     new Vector3( 1.3f, -2.0f, -2.5f),
+        //     new Vector3( 1.5f,  2.0f, -2.5f),
+        //     new Vector3( 1.5f,  0.2f, -1.5f),
+        //     new Vector3(-1.3f,  1.0f, -1.5f)
+        // };
         // --- End Removed fields ---
 
 
@@ -245,7 +246,7 @@ namespace Simple3DGame.Core
                 _sampleModel = CjObjLoader.LoadModel(modelPath, _lightingShader);
                 _cubeMesh = ModelFactory.CreateCube(_lightCubeShader);
 
-                Entity floorEntity = CreateFloor();
+                Entity floorEntity = CreateFloor(); // Floor created first to define its size
 
                 // Add components to the floor entity - исправлен масштаб, чтобы не масштабировать по Y
                 AddComponent(floorEntity, new TransformComponent(
@@ -258,28 +259,58 @@ namespace Simple3DGame.Core
                 _logger.LogInformation("Floor entity configured with Transform and Render components.");
                 // --- End Create Floor ---
 
-
+                var lightModel = new Model(new List<Mesh> { _cubeMesh });
                 // 2. Create Entities and Components
 
-                // Create Cube Entities
-                if (_sampleModel != null && _lightingShader != null) // Check Model (class) for null
+                // Maze Generation
+                var mazeGenerator = new MazeGenerator();
+                int mazeGridWidth = 21; // Define how many cells wide the maze is
+                int mazeGridHeight = 21; // Define how many cells tall the maze is
+                int[,] mazeLayout = mazeGenerator.GenerateMazeGrid(mazeGridHeight, mazeGridWidth);
+
+                // Create Cube Entities based on Maze
+                if (_sampleModel != null && _lightingShader != null)
                 {
-                    float angle = 0f;
-                    foreach (var pos in _cubePositions)
+                    float floorSize = 35.0f; // Must match the floorSize in CreateFloor()
+                    float cubeSize = 1.0f; // Assuming cubes are 1x1x1 units
+                    float cellWidthOnFloor = floorSize / mazeGridWidth;
+                    float cellHeightOnFloor = floorSize / mazeGridHeight;
+                    // Ensure floorY is consistent with CreateFloor. If floorY is -0.55f, then:
+                    float floorYPosition = -0.55f; 
+                    float cubeYPosition = floorYPosition + cubeSize / 2.0f; // Place base of cube on floor
+
+                    int cubesCreated = 0;
+                    for (int r = 0; r < mazeGridHeight; r++)
                     {
-                        var cubeEntity = CreateEntity();
-                        angle += 20.0f;
-                        var rotation = Quaternion.FromAxisAngle(new Vector3(1.0f, 0.3f, 0.5f).Normalized(), MathHelper.DegreesToRadians(angle));
-                        // Use correct TransformComponent constructor
-                        AddComponent(cubeEntity, new TransformComponent(pos, rotation, Vector3.One));
-                        // Use correct RenderComponent constructor
-                        AddComponent(cubeEntity, new RenderComponent(_sampleModel, _lightingShader, 32.0f));
+                        for (int c = 0; c < mazeGridWidth; c++)
+                        {
+                            if (mazeLayout[r, c] == 1) // 1 means wall, place a cube
+                            {
+                                // Calculate position for the cube
+                                // Center of the cell:
+                                float xPos = (c - mazeGridWidth / 2.0f + 0.5f) * cellWidthOnFloor;
+                                float zPos = (r - mazeGridHeight / 2.0f + 0.5f) * cellHeightOnFloor;
+                                Vector3 cubePosition = new Vector3(xPos, cubeYPosition, zPos);
+
+                                var cubeEntity = CreateEntity();
+                                // Random rotation for visual variety, or keep it uniform
+                                var rotation = Quaternion.FromAxisAngle(
+                                    new Vector3(0.0f, 0.0f, 0.0f),
+                                    MathHelper.DegreesToRadians((float)new Random().NextDouble() * 360f)
+                                );
+                                // Scale cubes to fit cell, with a small gap. Use cubeSize for Y scale.
+                                // Change 0.9f to 1.0f for tight fit
+                                AddComponent(cubeEntity, new TransformComponent(cubePosition, rotation, new Vector3(cellWidthOnFloor * 1.0f, cubeSize, cellHeightOnFloor * 1.0f))); 
+                                AddComponent(cubeEntity, new RenderComponent(lightModel, _lightingShader, 32.0f));
+                                cubesCreated++;
+                            }
+                        }
                     }
-                    _logger.LogInformation($"Created {_cubePositions.Length} cube entities."); // Use logger wrapper method
+                    _logger.LogInformation($"Created {cubesCreated} cube entities based on maze layout.");
                 }
                 else
                 {
-                    _logger.LogError("Failed to load sample model or lighting shader. Cannot create cube entities."); // Use logger wrapper method
+                    _logger.LogError("Failed to load sample model or lighting shader. Cannot create cube entities for maze.");
                 }
 
 
@@ -293,7 +324,7 @@ namespace Simple3DGame.Core
                         AddComponent(lightEntity, LightComponent.CreatePointLight(pos));
                         // RenderComponent needs Model, not Mesh. Create a Model from the Mesh.
                         // Assuming Model constructor takes a Mesh.
-                        var lightModel = new Model(new List<Mesh> { _cubeMesh });
+                        //var lightModel = new Model(new List<Mesh> { _cubeMesh });
                         AddComponent(lightEntity, new RenderComponent(lightModel, _lightCubeShader));
                     }
                     _logger.LogInformation($"Created {_pointLightPositions.Length} point light entities."); // Use logger wrapper method
@@ -325,12 +356,12 @@ namespace Simple3DGame.Core
                 
                 // Порядок загрузки кубических текстур:
                 // +X (правая), -X (левая), +Y (верх), -Y (низ), +Z (перед), -Z (зад)
-                skyboxFaces[0] = Path.Combine(texturesPath, "vz_clear_ocean_right.png");
-                skyboxFaces[1] = Path.Combine(texturesPath, "vz_clear_ocean_left.png");
-                skyboxFaces[2] = Path.Combine(texturesPath, "vz_clear_ocean_up.png");
-                skyboxFaces[3] = Path.Combine(texturesPath, "vz_clear_ocean_down.png");  // Используем доступную текстуру down
-                skyboxFaces[4] = Path.Combine(texturesPath, "vz_clear_ocean_front.png");
-                skyboxFaces[5] = Path.Combine(texturesPath, "vz_clear_ocean_back.png");   // Используем доступную текстуру back
+                skyboxFaces[0] = Path.Combine(texturesPath, "vz_clear_ocean_right.bmp");
+                skyboxFaces[1] = Path.Combine(texturesPath, "vz_clear_ocean_left.bmp");
+                skyboxFaces[2] = Path.Combine(texturesPath, "vz_clear_ocean_up.bmp");
+                skyboxFaces[3] = Path.Combine(texturesPath, "vz_clear_ocean_down.bmp");  // Используем доступную текстуру down
+                skyboxFaces[4] = Path.Combine(texturesPath, "vz_clear_ocean_front.bmp");
+                skyboxFaces[5] = Path.Combine(texturesPath, "vz_clear_ocean_back.bmp");   // Используем доступную текстуру back
                 
                 // Проверяем наличие всех необходимых файлов
                 bool allFilesExist = true;
@@ -455,7 +486,9 @@ namespace Simple3DGame.Core
                 camera.ProcessKeyboard(CameraMovement.Left, deltaTime);
             if (keyboardState.IsKeyDown(Keys.D))
                 camera.ProcessKeyboard(CameraMovement.Right, deltaTime);
-            camera.ProcessMouseMovement(mouseState.Delta.X, 0);
+            camera.ProcessMouseMovement(mouseState.Delta.X, mouseState.Delta.Y);
+            if (keyboardState.IsKeyDown(Keys.M))
+                Console.WriteLine(camera.Position);
         }
 
         public void Cleanup()
