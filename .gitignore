@@ -12,9 +12,10 @@ obj/
 .vscode/
 .idea/
 
-models
+assets/models
 textures
 .vscode/
+Logs
 
 # OS
 .DS_Store
