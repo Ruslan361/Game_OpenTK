@@ -12,7 +12,7 @@ using Simple3DGame.Core.Logging;
 using Simple3DGame.Models; // Use correct namespace for Model
 using Simple3DGame.Rendering;
 using System.IO;
-using Simple3DGame.Core.Utils; // Added for MazeGenerator
+using Simple3DGame.Core.Utils; // Added for MazeGenerator and MathUtils
 
 namespace Simple3DGame.Core
 {
@@ -50,7 +50,13 @@ namespace Simple3DGame.Core
 
         // Player Entity
         private Entity _playerEntity;
-        private Vector3 _cameraOffset = new Vector3(0, 1f, 3f); // Offset from player to camera. X=0, Y=up, Z=behind
+        private Vector3 _cameraOffset = new Vector3(0, 1.5f, -4f); // Offset from player: X=center, Y=up, Z=behind
+        private Vector3 _smoothedCameraPosition; // For SmoothDamp
+        private Vector3 _currentCameraPositionVelocity = Vector3.Zero;
+        private Vector3 _smoothedLookAtTarget;
+        private Vector3 _currentLookAtVelocity = Vector3.Zero;
+        private float _cameraPositionSmoothTime = 0.25f;
+        private float _cameraLookAtSmoothTime = 0.08f;
 
 
         // --- Removed old fields ---
@@ -306,15 +312,26 @@ namespace Simple3DGame.Core
                 float playerStartZCell = 1; // Logical Z cell for player start
                 float playerX = (playerStartXCell - mazeGridWidth / 2.0f + 0.5f) * cellWidthOnFloor;
                 float playerZ = (playerStartZCell - mazeGridHeight / 2.0f + 0.5f) * cellHeightOnFloor;
-                float playerModelHeight = 2f; // Assuming player model is 0.5 units high
-                float playerY = -0.55f + playerModelHeight / 2.0f; // On floor
+                float playerModelHeight = 1.8f; // Adjusted player model height
+                float playerY = -0.55f + playerModelHeight / 2.0f; // On floor, pivot at base center
 
                 Vector3 playerStartPosition = new Vector3(playerX, playerY, playerZ); 
-                AddComponent(_playerEntity, new TransformComponent(playerStartPosition, Quaternion.Identity, new Vector3(playerModelHeight / 2f))); // Player model scale (e.g., 0.25f if height is 0.5f)
+                // Scale player to be roughly playerModelHeight tall. If model is 1 unit high, scale by playerModelHeight.
+                // If model is already playerModelHeight, scale is 1. Assuming model is 1 unit, scale by playerModelHeight.
+                AddComponent(_playerEntity, new TransformComponent(playerStartPosition, Quaternion.Identity, new Vector3(playerModelHeight * 0.5f, playerModelHeight, playerModelHeight * 0.5f))); 
                 if (_sampleModel != null && _lightingShader != null)
                 {
                     AddComponent(_playerEntity, new RenderComponent(_sampleModel, _lightingShader, 32.0f));
                     _logger.LogInformation("Player entity created and configured.");
+
+                    // Initialize camera position and look-at target based on player's start
+                    Quaternion initialPlayerRotation = Quaternion.Identity; // Assuming player starts without rotation
+                    Vector3 rotatedOffset = initialPlayerRotation * _cameraOffset;
+                    _smoothedCameraPosition = playerStartPosition + rotatedOffset;
+                    _camera.Position = _smoothedCameraPosition;
+
+                    _smoothedLookAtTarget = playerStartPosition + new Vector3(0, playerModelHeight * 0.6f, 0); // Look at upper part of player
+                    _camera.LookAt(_smoothedLookAtTarget);
                 }
                 else
                 {
@@ -465,40 +482,71 @@ namespace Simple3DGame.Core
             // --- Player Movement (Example) ---
             if (TryGetComponent(_playerEntity, out TransformComponent playerTransform))
             {
-                Vector3 moveDirection = Vector3.Zero;
                 float playerSpeed = 2.0f * deltaTime;
+                float rotationSpeedDegrees = 100.0f; // Degrees per second
+                float rotationAmount = MathHelper.DegreesToRadians(rotationSpeedDegrees) * deltaTime;
 
-                // Basic movement relative to world axes. For camera-relative, need to use camera.Front/Right
-                if (keyboardState.IsKeyDown(Keys.W)) moveDirection -= Vector3.UnitZ; // Move forward (along world -Z)
-                if (keyboardState.IsKeyDown(Keys.S)) moveDirection += Vector3.UnitZ; // Move backward (along world +Z)
-                if (keyboardState.IsKeyDown(Keys.A)) moveDirection -= Vector3.UnitX; // Move left (along world -X)
-                if (keyboardState.IsKeyDown(Keys.D)) moveDirection += Vector3.UnitX; // Move right (along world +X)
+                bool hasRotated = false;
+                bool hasMoved = false;
 
-                if (moveDirection != Vector3.Zero)
+                // 1. Handle Rotation (A/D)
+                if (keyboardState.IsKeyDown(Keys.A))
                 {
-                    moveDirection.Normalize();
-                    playerTransform.Position += moveDirection * playerSpeed;
+                    playerTransform.Rotation *= Quaternion.FromAxisAngle(Vector3.UnitY, rotationAmount); // Rotate left
+                    hasRotated = true;
+                }
+                if (keyboardState.IsKeyDown(Keys.D))
+                {
+                    playerTransform.Rotation *= Quaternion.FromAxisAngle(Vector3.UnitY, -rotationAmount); // Rotate right
+                    hasRotated = true;
+                }
+                
+                if(hasRotated) {
+                    playerTransform.Rotation.Normalize(); // Normalize to prevent drift from accumulated rotations
+                }
 
-                    // Calculate rotation based on movement direction
-                    // MathF.Atan2 returns the angle in radians whose tangent is the quotient of two specified numbers.
-                    // We use X and Z for the horizontal plane, pointing the player along the moveDirection vector.
-                    // The angle is around the Y axis.
-                    float targetAngleY = MathF.Atan2(moveDirection.X, moveDirection.Z);
-                    playerTransform.Rotation = Quaternion.FromAxisAngle(Vector3.UnitY, targetAngleY);
+                // 2. Handle Movement (W/S)
+                Vector3 localMoveDirection = Vector3.Zero;
+                if (keyboardState.IsKeyDown(Keys.W))
+                {
+                    // Assuming player model's forward is along its local -Z axis (common in 3D modeling)
+                    localMoveDirection = Vector3.UnitZ; 
+                    hasMoved = true;
+                }
+                if (keyboardState.IsKeyDown(Keys.S))
+                {
+                    localMoveDirection = -Vector3.UnitZ; // Move backward along player's local Z axis
+                    hasMoved = true;
+                }
 
-                    // Update the component in the ECS
-                    AddComponent(_playerEntity, playerTransform); 
+                if (hasMoved)
+                {
+                    // Transform local move direction to world space based on player's current rotation
+                    Vector3 worldMoveDirection = playerTransform.Rotation * localMoveDirection;
+                    playerTransform.Position += worldMoveDirection * playerSpeed;
+                }
+
+                // Update the component in the ECS if anything changed
+                if (hasMoved || hasRotated)
+                {
+                    AddComponent(_playerEntity, playerTransform);
                 }
 
                 // --- Camera Follow Player ---
-                // Calculate desired camera position based on player's current position and offset
-                Vector3 targetCameraPosition = playerTransform.Position + _cameraOffset;
+                // Calculate desired camera position based on player's current position and offset, rotated by player's orientation
+                Vector3 rotatedOffset = playerTransform.Rotation * _cameraOffset;
+                Vector3 desiredCameraPosition = playerTransform.Position + rotatedOffset;
+
+                _smoothedCameraPosition = MathUtils.SmoothDamp(_camera.Position, desiredCameraPosition, ref _currentCameraPositionVelocity, _cameraPositionSmoothTime, float.MaxValue, deltaTime);
+                _camera.Position = _smoothedCameraPosition;
                 
-                // For a simple third-person follow, directly set camera position:
-                _camera.Position = targetCameraPosition;
-                
-                // Make the camera look at the player's position (e.g., center of the player model)
-                _camera.LookAt(playerTransform.Position + new Vector3(0, 0.9f, 0)); // Look at player's center (assuming 0.5f height)
+                // Calculate desired look-at point (e.g., upper part of the player model)
+                // Assuming playerTransform.Position is the base center of the player
+                float playerModelHeight = 1.8f; // Must match player setup
+                Vector3 desiredLookAtPoint = playerTransform.Position + playerTransform.Rotation * new Vector3(0, playerModelHeight * 0.6f, 0); // Look at a point relative to player's orientation and height
+
+                _smoothedLookAtTarget = MathUtils.SmoothDamp(_smoothedLookAtTarget, desiredLookAtPoint, ref _currentLookAtVelocity, _cameraLookAtSmoothTime, float.MaxValue, deltaTime);
+                _camera.LookAt(_smoothedLookAtTarget);
             }
             // --- End Player Movement ---
 
