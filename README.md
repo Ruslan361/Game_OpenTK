@@ -61,7 +61,7 @@
 1.  Клонируйте репозиторий:
     ```bash
     git clone git@github.com:Ruslan361/Game_OpenTK.git
-    cd Game_OpenTK_
+    cd Game_OpenTK
     ```
 2.  Соберите проект:
     ```bash
