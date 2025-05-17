@@ -49,7 +49,9 @@ namespace Simple3DGame.Core
         private Texture? _brickSpecularTexture;
 
         // Player Entity
-        private Entity _playerEntity;
+        // private Entity _playerEntity; // Replaced by Player class instance
+        private Player? _player; // Instance of the new Player class
+
         private Vector3 _cameraOffset = new Vector3(0, 1.5f, -4f); // Offset from player: X=center, Y=up, Z=behind
         private Vector3 _smoothedCameraPosition; // For SmoothDamp
         private Vector3 _currentCameraPositionVelocity = Vector3.Zero;
@@ -63,10 +65,23 @@ namespace Simple3DGame.Core
         // private readonly Vector3 _lightPos = new Vector3(1.2f, 1.0f, 2.0f); // Removed - Use components
         private readonly Vector3[] _pointLightPositions =
         {
-            new Vector3( 0.7f,  0.2f,  2.0f),
-            new Vector3( 2.3f, -3.3f, -4.0f),
-            new Vector3(-4.0f,  2.0f, -12.0f),
-            new Vector3( 0.0f,  0.0f, -3.0f)
+            // Light positions adjusted to be above/within the maze area
+            // Assuming maze is centered at (0,y,0) and floorSize is around 20-35.
+            // Cell (1,3) in a 21x21 grid, assuming cellWidth/Height around 1.0 to 1.5
+            // Example: if cellWidth = 35/21 = 1.66. (1 - 10.5 + 0.5) * 1.66 = -9 * 1.66 = -14.94
+            // (3 - 10.5 + 0.5) * 1.66 = -7 * 1.66 = -11.62
+            // So a light at roughly (-10, 3, -8) could be within a path if maze is dense.
+            // Let's try a position that is likely a corridor in a 21x21 maze, e.g., near (2,2) from maze origin (0,0)
+            // If maze center is 0,0, and cell (10,10) is center, then (12,12) is a path cell.
+            // (12 - 10.5 + 0.5)*cellW = 2*cellW. (12-10.5+0.5)*cellH = 2*cellH
+            // Let's place one strategically within a likely corridor of a 21x21 maze.
+            // If floorSize = 35, cell = 35/21 = 1.66.  (2,2) from center of maze grid (10,10) -> (12,12)
+            // X: (12 - 21/2 + 0.5) * 1.66 = (12 - 10.5 + 0.5) * 1.66 = 2 * 1.66 = 3.32
+            // Z: (12 - 21/2 + 0.5) * 1.66 = 2 * 1.66 = 3.32
+            new Vector3(3.32f, 1.0f, 3.32f), // Light 1: Within a maze path (hopefully)
+            new Vector3( 10f, 3.0f, 10f),   // Light 2: Top-right area, above maze
+            new Vector3(-10f, 3.0f, -10f),  // Light 3: Bottom-left area, above maze
+            new Vector3( 0.0f, 4.0f, 0.0f)    // Light 4: Center, high above maze
         };
         // private readonly Vector3[] _cubePositions = // This will be replaced by maze generation
         // {
@@ -305,8 +320,10 @@ namespace Simple3DGame.Core
                 GenerateAndPlaceMaze(mazeGridWidth, mazeGridHeight, floorSize, cubeSize, cellWidthOnFloor, cellHeightOnFloor);
 
 
-                // Create Player Entity
-                _playerEntity = CreateEntity();
+                // Create Player Entity using the new Player class
+                var playerEntity = CreateEntity(); // Create the ECS entity first
+                _player = new Player(playerEntity, this); // Create Player instance
+
                 // Player starts at the center of the maze's typical start (1,1) if maze is e.g. 11x11 or 21x21
                 float playerStartXCell = 1; // Logical X cell for player start
                 float playerStartZCell = 1; // Logical Z cell for player start
@@ -318,19 +335,20 @@ namespace Simple3DGame.Core
                 Vector3 playerStartPosition = new Vector3(playerX, playerY, playerZ); 
                 // Scale player to be roughly playerModelHeight tall. If model is 1 unit high, scale by playerModelHeight.
                 // If model is already playerModelHeight, scale is 1. Assuming model is 1 unit, scale by playerModelHeight.
-                AddComponent(_playerEntity, new TransformComponent(playerStartPosition, Quaternion.Identity, new Vector3(playerModelHeight * 0.5f, playerModelHeight, playerModelHeight * 0.5f))); 
+                AddComponent(playerEntity, new TransformComponent(playerStartPosition, Quaternion.Identity, new Vector3(playerModelHeight * 0.5f, playerModelHeight, playerModelHeight * 0.5f))); 
                 if (_sampleModel != null && _lightingShader != null)
                 {
-                    AddComponent(_playerEntity, new RenderComponent(_sampleModel, _lightingShader, 32.0f));
+                    AddComponent(playerEntity, new RenderComponent(_sampleModel, _lightingShader, 32.0f));
                     _logger.LogInformation("Player entity created and configured.");
 
                     // Initialize camera position and look-at target based on player's start
-                    Quaternion initialPlayerRotation = Quaternion.Identity; // Assuming player starts without rotation
-                    Vector3 rotatedOffset = initialPlayerRotation * _cameraOffset;
-                    _smoothedCameraPosition = playerStartPosition + rotatedOffset;
+                    // Quaternion initialPlayerRotation = Quaternion.Identity; // Assuming player starts without rotation
+                    TransformComponent initialPlayerTransform = _player.GetTransform();
+                    Vector3 rotatedOffset = initialPlayerTransform.Rotation * _cameraOffset;
+                    _smoothedCameraPosition = initialPlayerTransform.Position + rotatedOffset;
                     _camera.Position = _smoothedCameraPosition;
 
-                    _smoothedLookAtTarget = playerStartPosition + new Vector3(0, playerModelHeight * 0.6f, 0); // Look at upper part of player
+                    _smoothedLookAtTarget = initialPlayerTransform.Position + new Vector3(0, playerModelHeight * 0.6f, 0); // Look at upper part of player
                     _camera.LookAt(_smoothedLookAtTarget);
                 }
                 else
@@ -480,8 +498,10 @@ namespace Simple3DGame.Core
             // --- End Camera Input Update ---
 
             // --- Player Movement (Example) ---
-            if (TryGetComponent(_playerEntity, out TransformComponent playerTransform))
+            if (_player != null) // Check if player instance exists
             {
+                TransformComponent playerTransform = _player.GetTransform(); // Get current transform
+
                 float playerSpeed = 2.0f * deltaTime;
                 float rotationSpeedDegrees = 100.0f; // Degrees per second
                 float rotationAmount = MathHelper.DegreesToRadians(rotationSpeedDegrees) * deltaTime;
@@ -529,7 +549,8 @@ namespace Simple3DGame.Core
                 // Update the component in the ECS if anything changed
                 if (hasMoved || hasRotated)
                 {
-                    AddComponent(_playerEntity, playerTransform);
+                    // AddComponent(_playerEntity, playerTransform);
+                    _player.UpdateTransform(playerTransform); // Update transform via Player class
                 }
 
                 // --- Camera Follow Player ---
