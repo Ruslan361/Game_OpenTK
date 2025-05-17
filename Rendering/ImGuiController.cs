@@ -22,13 +22,30 @@ namespace Simple3DGame.Rendering
         
         private readonly List<char> _pressedChars = new List<char>();
 
-        public ImGuiController(int width, int height)
+        public ImGuiController(int width, int height) // Removed unsafe from constructor signature
         {
             IntPtr context = ImGui.CreateContext();
             ImGui.SetCurrentContext(context);
             
             var io = ImGui.GetIO();
-            io.Fonts.AddFontDefault();
+
+            // Загрузка шрифта с поддержкой кириллицы
+            // Используем существующий шрифт minecraft.ttf. Убедитесь, что он поддерживает кириллицу.
+            string fontPath = "Assets/Fonts/minecraft.ttf"; // Путь к файлу шрифта
+            if (System.IO.File.Exists(fontPath))
+            {
+                unsafe // Added unsafe block specifically around the font loading call
+                {
+                    io.Fonts.AddFontFromFileTTF(fontPath, 16.0f, null, io.Fonts.GetGlyphRangesCyrillic());
+                }
+            }
+            else
+            {
+                // Если файл шрифта не найден, используем шрифт по умолчанию
+                io.Fonts.AddFontDefault();
+                Console.WriteLine($"[WARN] Файл шрифта не найден: {fontPath}. Используется шрифт по умолчанию. Кириллические символы могут не отображаться корректно.");
+            }
+            
             io.BackendFlags |= ImGuiBackendFlags.RendererHasVtxOffset;
             io.DisplaySize = new System.Numerics.Vector2(width, height);
             
