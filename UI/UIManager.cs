@@ -52,13 +52,11 @@ namespace Simple3DGame.UI
         {
             // These would typically be loaded from a configuration file or by scanning a directory
             // For now, let's add some predefined models
-            _availableCharacters.Add("Sample Model", new ModelInfo("Sample", "Assets/Models/sample.obj", false));
-            _availableCharacters.Add("Sphere", new ModelInfo("Sphere", "sphere", true));
+            // _availableCharacters.Add("Образец модели", new ModelInfo("Образец", "Assets/Models/sample.obj", false)); // Removed character selection
+            // _availableCharacters.Add("Сфера", new ModelInfo("Сфера", "sphere", true)); // Removed character selection
             
-            // You would scan a directory like this:
-            // Directory.GetFiles("Assets/Models", "*.obj").ForEach(file => 
-            //     _availableCharacters.Add(Path.GetFileNameWithoutExtension(file), 
-            //     new ModelInfo(Path.GetFileNameWithoutExtension(file), file, false)));
+            // Default character if needed, though selection is removed
+             _availableCharacters.Add("Стандартный", new ModelInfo("Стандартный", "Assets/Models/sample.obj", false));
         }
         
         // Render the main menu UI
@@ -75,44 +73,43 @@ namespace Simple3DGame.UI
             ImGui.SetNextWindowPos(windowPos);
             ImGui.SetNextWindowSize(windowSize);
             
-            ImGui.Begin("Maze Runner", ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoCollapse);
+            ImGui.Begin("Главное Меню", ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoCollapse); // Title changed
             
             // Title
-            ImGui.SetCursorPosX((windowSize.X - ImGui.CalcTextSize("MAZE RUNNER").X) * 0.5f);
-            ImGui.Text("MAZE RUNNER");
+            ImGui.SetCursorPosX((windowSize.X - ImGui.CalcTextSize("Лабиринт").X) * 0.5f);
+            ImGui.Text("Лабиринт");
             ImGui.Separator();
             
             // Stats display
-            ImGui.Text($"High Score: {_gameStateManager.HighScore}");
-            ImGui.Text($"Longest Survival: {_gameStateManager.GetFormattedSurvivalTime(_gameStateManager.LongestSurvivalTime)}");
+            ImGui.Text($"Лучшее время: {_gameStateManager.GetFormattedSurvivalTime(_gameStateManager.LongestSurvivalTime)}"); // Changed text, removed score
             ImGui.Spacing();
             
-            // Character selection
-            ImGui.Text("Select Character:");
-            if (ImGui.BeginCombo("##CharacterCombo", _selectedCharacter))
-            {
-                foreach (var character in _availableCharacters.Keys)
-                {
-                    bool isSelected = (character == _selectedCharacter);
-                    if (ImGui.Selectable(character, isSelected))
-                    {
-                        _selectedCharacter = character;
-                    }
+            // Character selection REMOVED
+            // ImGui.Text("Выберите персонажа:");
+            // if (ImGui.BeginCombo("##CharacterCombo", _selectedCharacter))
+            // {
+            //     foreach (var character in _availableCharacters.Keys)
+            //     {
+            //         bool isSelected = (character == _selectedCharacter);
+            //         if (ImGui.Selectable(character, isSelected))
+            //         {
+            //             _selectedCharacter = character;
+            //         }
                     
-                    if (isSelected)
-                    {
-                        ImGui.SetItemDefaultFocus();
-                    }
-                }
-                ImGui.EndCombo();
-            }
+            //         if (isSelected)
+            //         {
+            //             ImGui.SetItemDefaultFocus();
+            //         }
+            //     }
+            //     ImGui.EndCombo();
+            // }
             
-            // Display character properties
-            if (_availableCharacters.TryGetValue(_selectedCharacter, out ModelInfo modelInfo))
-            {
-                ImGui.Text($"Movement: {(modelInfo.CanFly ? "Flying" : "Ground")}");
-                ImGui.Text($"Model Path: {modelInfo.FilePath}");
-            }
+            // Display character properties REMOVED
+            // if (_availableCharacters.TryGetValue(_selectedCharacter, out ModelInfo modelInfo))
+            // {
+            //     ImGui.Text($"Движение: {(modelInfo.CanFly ? "Полет" : "Земля")}");
+            //     ImGui.Text($"Путь к модели: {modelInfo.FilePath}");
+            // }
             
             ImGui.Spacing();
             ImGui.Separator();
@@ -120,14 +117,14 @@ namespace Simple3DGame.UI
             // Start Game Button (centered)
             float buttonWidth = 200;
             ImGui.SetCursorPosX((windowSize.X - buttonWidth) * 0.5f);
-            if (ImGui.Button("Start Game", new System.Numerics.Vector2(buttonWidth, 50)))
+            if (ImGui.Button("Начать Игру", new System.Numerics.Vector2(buttonWidth, 50))) // Changed text
             {
                 _gameStateManager.ChangeState(GameState.Playing);
             }
             
             // Exit Button (centered)
             ImGui.SetCursorPosX((windowSize.X - buttonWidth) * 0.5f);
-            if (ImGui.Button("Exit", new System.Numerics.Vector2(buttonWidth, 30)))
+            if (ImGui.Button("Выход", new System.Numerics.Vector2(buttonWidth, 30)))
             {
                 // This will be handled externally to close the application
                 Environment.Exit(0);
@@ -139,24 +136,25 @@ namespace Simple3DGame.UI
         // Render game UI during gameplay
         public void RenderGameUI()
         {
-            ImGuiWindowFlags windowFlags = ImGuiWindowFlags.NoDecoration | 
-                                           ImGuiWindowFlags.AlwaysAutoResize | 
+            // Убрано ImGuiWindowFlags.NoDecoration для отладки, чтобы видеть окно
+            ImGuiWindowFlags windowFlags = ImGuiWindowFlags.AlwaysAutoResize | 
                                            ImGuiWindowFlags.NoSavedSettings | 
                                            ImGuiWindowFlags.NoFocusOnAppearing | 
                                            ImGuiWindowFlags.NoNav | 
                                            ImGuiWindowFlags.NoMove;
             
             ImGui.SetNextWindowPos(new System.Numerics.Vector2(10, 10));
-            ImGui.Begin("Game Info", windowFlags);
-            ImGui.Text($"Score: {_gameStateManager.CurrentScore}");
+            ImGui.Begin("Игровой Интерфейс (Отладка)", windowFlags); // Изменен заголовок для ясности
             
+            ImGui.Text("bombini gusine"); // Добавлена тестовая строка
+
             // Update and display survival time during gameplay
             _gameStateManager.UpdateSurvivalTime();
-            ImGui.Text($"Time: {_gameStateManager.GetFormattedSurvivalTime(_gameStateManager.CurrentSurvivalTime)}");
+            ImGui.Text($"Время: {_gameStateManager.GetFormattedSurvivalTime(_gameStateManager.CurrentSurvivalTime)}");
             
-            if (ImGui.Button("Return to Menu"))
+            if (ImGui.Button("В Меню", new System.Numerics.Vector2(120, 0)))
             {
-                _gameStateManager.ChangeState(GameState.GameOver);
+                _gameStateManager.ChangeState(GameState.GameOver); // Go to GameOver first to save stats
                 _gameStateManager.ChangeState(GameState.MainMenu);
             }
             
@@ -177,16 +175,15 @@ namespace Simple3DGame.UI
             ImGui.SetNextWindowPos(windowPos);
             ImGui.SetNextWindowSize(windowSize);
             
-            ImGui.Begin("Game Over", ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoCollapse);
+            ImGui.Begin("Игра Окончена", ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoCollapse); // Title changed
             
             // Title
-            ImGui.SetCursorPosX((windowSize.X - ImGui.CalcTextSize("GAME OVER").X) * 0.5f);
-            ImGui.Text("GAME OVER");
+            ImGui.SetCursorPosX((windowSize.X - ImGui.CalcTextSize("Игра Окончена").X) * 0.5f); // Changed text
+            ImGui.Text("Игра Окончена"); // Changed text
             ImGui.Separator();
             
             // Results
-            ImGui.Text($"Final Score: {_gameStateManager.CurrentScore}");
-            ImGui.Text($"Survival Time: {_gameStateManager.GetFormattedSurvivalTime(_gameStateManager.CurrentSurvivalTime)}");
+            ImGui.Text($"Время выживания: {_gameStateManager.GetFormattedSurvivalTime(_gameStateManager.CurrentSurvivalTime)}"); // Removed score
             
             ImGui.Spacing();
             ImGui.Separator();
@@ -194,7 +191,7 @@ namespace Simple3DGame.UI
             // Return to menu button
             float buttonWidth = 200;
             ImGui.SetCursorPosX((windowSize.X - buttonWidth) * 0.5f);
-            if (ImGui.Button("Return to Menu", new System.Numerics.Vector2(buttonWidth, 40)))
+            if (ImGui.Button("В Меню", new System.Numerics.Vector2(buttonWidth, 40))) // Changed text
             {
                 _gameStateManager.ChangeState(GameState.MainMenu);
             }

@@ -132,7 +132,8 @@ namespace Simple3DGame.Rendering
             io.MouseDown[1] = mouseState.IsButtonDown(MouseButton.Right);
             io.MouseDown[2] = mouseState.IsButtonDown(MouseButton.Middle);
 
-            io.MousePos = new System.Numerics.Vector2(mouseState.X, mouseState.Y);
+            // Добавляем смещение +35 к Y координате мыши
+            io.MousePos = new System.Numerics.Vector2(mouseState.X, mouseState.Y + 35f); 
 
             io.MouseWheel = mouseState.ScrollDelta.Y;
             io.MouseWheelH = mouseState.ScrollDelta.X;
